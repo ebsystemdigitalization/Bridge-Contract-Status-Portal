@@ -29,8 +29,8 @@ steps:
       - --platform=managed
       - --no-allow-unauthenticated
       - --service-account=bridge-portal-api@$PROJECT_ID.iam.gserviceaccount.com
-      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,FIRESTORE_DATABASE_ID=(default),AUTH_PROVIDER=legacy-firebase
-
+      - --set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,AUTH_PROVIDER=legacy-firebase
+      - --update-secrets=FIRESTORE_DATABASE_ID=FIRESTORE_DATABASE_ID:latest
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA
 
