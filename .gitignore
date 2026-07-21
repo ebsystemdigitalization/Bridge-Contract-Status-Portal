@@ -7,7 +7,6 @@ coverage/
 *.log
 
 .env*
-.env.example*
 !.env.example
 
 # Firebase local files
@@ -28,4 +27,3 @@ backend/dist/
 backend/node_modules/
 backend/serviceAccountKey.json
 backend/.env
-backend/.env.example
