@@ -5,25 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bridge Contract Status Portal</title>
     <script>
-      // AGGRESSIVE PURGE: Fix for "Zombie" Real-Time Listeners
       const PURGE_VERSION = "1.5";
-      
-      // 1. Kill Service Workers
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for(let registration of registrations) {
-            registration.unregister().then(() => {
-              console.log("[System] Zombie ServiceWorker purged.");
-              if (!localStorage.getItem('_sys_p1_' + PURGE_VERSION)) {
-                localStorage.setItem('_sys_p1_' + PURGE_VERSION, 'true');
-                window.location.reload(true);
-              }
-            });
-          }
-        });
+      if ('caches' in window && !localStorage.getItem('_sys_p2_' + PURGE_VERSION)) {
+          caches.keys().then(names =>
+              Promise.all(names.map(name => caches.delete(name)))
+          );
+
+          localStorage.setItem('_sys_p2_' + PURGE_VERSION, 'true');
       }
 
-      // 2. Clear Caches and Local Storage once per version update
       if (!localStorage.getItem('_sys_p2_' + PURGE_VERSION)) {
         if ('caches' in window) {
           caches.keys().then(names => {
