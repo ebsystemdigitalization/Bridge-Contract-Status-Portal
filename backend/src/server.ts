@@ -25,8 +25,11 @@ app.use(cors({
 app.use(express.json({ limit: '25mb' }));
 app.use(morgan('combined'));
 
-app.get('/healthz', (_req, res) => {
-  res.json({ status: 'ok' });
+app.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'bridge-portal-api'
+  });
 });
 
 app.use('/api/auth', authRouter);
