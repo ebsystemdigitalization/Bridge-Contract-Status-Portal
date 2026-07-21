@@ -25,11 +25,18 @@
 
       // 2. Clear Caches and Local Storage once per version update
       if (!localStorage.getItem('_sys_p2_' + PURGE_VERSION)) {
-        caches.keys().then(names => {
-          for (let name of names) caches.delete(name);
-        });
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            for (let name of names) {
+              caches.delete(name);
+            }
+            console.log("[System] Global Cache Purge executed.");
+          });
+        } else {
+          console.log("[System] Cache API not available. Skipping purge.");
+        }
+
         localStorage.setItem('_sys_p2_' + PURGE_VERSION, 'true');
-        console.log("[System] Global Cache Purge executed.");
       }
     </script>
   </head>
