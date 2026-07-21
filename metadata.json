@@ -1,0 +1,6 @@
+{
+  "name": "Bridge Contract Status Portal",
+  "description": "Secure internal portal for verifying customer contract statuses and managing records.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

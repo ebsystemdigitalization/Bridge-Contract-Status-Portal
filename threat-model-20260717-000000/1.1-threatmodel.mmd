@@ -1,0 +1,18 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'background': '#ffffff', 'primaryColor': '#ffffff', 'lineColor': '#666666' }}}%%
+flowchart LR
+    EndUser[End User] --> BridgePortalFrontend[Bridge Portal Frontend]
+    BridgePortalFrontend --> AuthContext[Auth Context]
+    AuthContext --> EntraIdentityProvider[Entra ID / ADB2C]
+    AuthContext --> FirebaseAuth[Firebase Auth]
+    BridgePortalFrontend --> BridgePortalApi[Bridge Portal API]
+    BridgePortalApi --> FirestoreDatabase[Firestore]
+    AdminOperator[Admin Operator] --> BridgePortalFrontend
+    BridgePortalApi --> EntraIdentityProvider
+
+    classDef process fill:#6baed6,stroke:#2171b5,color:#000;
+    classDef external fill:#fdae61,stroke:#d94701,color:#000;
+    classDef datastore fill:#74c476,stroke:#238b45,color:#000;
+
+    class BridgePortalFrontend,AuthContext,BridgePortalApi process;
+    class EndUser,AdminOperator,EntraIdentityProvider,FirebaseAuth external;
+    class FirestoreDatabase datastore;

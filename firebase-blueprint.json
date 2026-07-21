@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "Contract": {
+      "title": "Contract",
+      "description": "Contract details for MSISDN",
+      "type": "object",
+      "properties": {
+        "billingAccountNumber": { "type": "string", "description": "Billing account number" },
+        "msisdn": { "type": "string", "description": "Mobile number" },
+        "username": { "type": "string", "description": "Fibre username (optional)" },
+        "planName": { "type": "string", "description": "Plan name" },
+        "productName": { "type": "string", "description": "Product name from dataset" },
+        "contractStartDate": { "type": "string", "format": "date", "description": "Contract start date" },
+        "contractEndDate": { "type": "string", "format": "date", "description": "Contract end date" },
+        "contractDuration": { "type": "number", "description": "Contract duration in months" },
+        "contractPenaltyAmount": { "type": "number", "description": "Contract penalty amount" },
+        "contractStatus": { "type": "string", "enum": ["ACTIVE", "EXPIRED"], "description": "Contract status" },
+        "remainingMonths": { "type": "number", "description": "Remaining months in contract" },
+        "segment": { "type": "string", "description": "Customer/Contract segment (e.g. Mass, High Value, etc.)" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["billingAccountNumber", "msisdn", "contractStatus"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile, role, and approval status",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["superadmin", "admin", "user"] },
+        "status": { "type": "string", "enum": ["Pending", "Active", "Rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "username", "role", "status"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "Security audit logs for admin actions",
+      "type": "object",
+      "properties": {
+        "adminId": { "type": "string" },
+        "adminUsername": { "type": "string" },
+        "adminRole": { "type": "string" },
+        "targetUserId": { "type": "string" },
+        "targetUserUsername": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["adminId", "adminUsername", "action", "timestamp"]
+    },
+    "SearchLog": {
+      "title": "Search Log",
+      "description": "Logs for user search queries",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "searchBy": { "type": "string", "enum": ["msisdn", "billingAccountNumber", "username"] },
+        "searchTerm": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "resultsCount": { "type": "number" }
+      },
+      "required": ["userId", "username", "searchTerm", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/contracts/{contractId}": {
+      "schema": "Contract",
+      "description": "Collection of contracts"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Admin audit logs"
+    },
+    "/search_logs/{logId}": {
+      "schema": "SearchLog",
+      "description": "User search logs"
+    }
+  }
+}

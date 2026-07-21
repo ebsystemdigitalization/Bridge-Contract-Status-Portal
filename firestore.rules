@@ -1,0 +1,174 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net - Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      // Relaxed for admins, verified emails, owners, and ADB2C shadow accounts
+      return isSignedIn() && (
+        request.auth.token.get('email_verified', false) == true || 
+        isOwner() ||
+        isADB2CShadow() ||
+        getUserData(request.auth.uid).get('role', 'user') == 'admin' ||
+        getUserData(request.auth.uid).get('role', 'user') == 'superadmin'
+      );
+    }
+
+    // Master Owner access for initial setup/recovery
+    function isOwner() {
+      return isSignedIn() && (
+        request.auth.token.email == 'ebsystemdigitalization@gmail.com' ||
+        request.auth.token.email == 'ebsystemdigitalization@celcomdigi.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function getUserData(uid) {
+      let path = /databases/$(database)/documents/users/$(uid);
+      return exists(path) ? get(path).data : {};
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        isOwner() ||
+        getUserData(request.auth.uid).get('role', 'user') == 'superadmin'
+      );
+    }
+
+    function isADB2CShadow() {
+      return isSignedIn() && (
+        getUserData(request.auth.uid).get('authProvider', '') == 'adb2c'
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isOwner() ||
+        getUserData(request.auth.uid).get('role', 'user') == 'admin' ||
+        getUserData(request.auth.uid).get('role', 'user') == 'superadmin'
+      );
+    }
+
+    function isActive() {
+      return isSignedIn() && (
+        isOwner() ||
+        getUserData(request.auth.uid).get('status', 'Pending') == 'Active' ||
+        isADB2CShadow()
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+
+    function isValidUser(data) {
+      return data.get('username', '') is string && 
+             data.get('role', 'user') in ['superadmin', 'admin', 'user'] &&
+             data.get('status', 'Pending') in ['Pending', 'Active', 'Rejected'];
+    }
+
+    function isValidContract(data) {
+      return data.keys().hasAll(['billingAccountNumber', 'msisdn', 'contractStatus', 'planName', 'productName']) &&
+             data.billingAccountNumber is string && data.billingAccountNumber.size() <= 100 &&
+             data.msisdn is string && data.msisdn.size() <= 50 &&
+             data.planName is string && data.planName.size() <= 200 &&
+             data.productName is string && data.productName.size() <= 200 &&
+             data.contractStatus in ['ACTIVE', 'EXPIRED'] &&
+             data.get('segment', '') is string && data.get('segment', '').size() <= 100;
+    }
+
+    function isValidAuditLog(data) {
+      return data.adminId == request.auth.uid &&
+             data.adminUsername is string &&
+             data.action is string &&
+             data.timestamp == request.time;
+    }
+
+    function isValidSearchLog(data) {
+      return data.userId == request.auth.uid &&
+             data.username is string &&
+             data.searchTerm is string &&
+             data.timestamp == request.time;
+    }
+
+    // --- Collection Matches ---
+
+    match /users/{userId} {
+      // Secure List Queries: Admins and Superadmins only.
+      // Users can read only their own profile.
+      allow list: if isSignedIn() && (isSuperAdmin() || isAdmin());
+      allow get: if isSignedIn() && (isAdmin() || request.auth.uid == userId);
+      
+      // Allow self-registration
+      allow create: if isSignedIn() && request.auth.uid == userId && 
+                    incoming().role == 'user' &&
+                    isValidUser(incoming()) &&
+                    (
+                      isADB2CShadow() ? 
+                        (incoming().status == 'Active' && incoming().adb2cEmail == request.auth.token.get('email', '')) : 
+                        (incoming().status == 'Pending')
+                    ) &&
+                    incoming().keys().hasAll(['username', 'role', 'status', 'uid', 'createdAt', 'lastLoginAt']);
+      
+      // Update logic: Self (limited fields) or Admin/SuperAdmin
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['username', 'email', 'lastLoginAt', 'status', 'adb2cEmail'])) ||
+        (isSuperAdmin() && existing().get('role', 'user') != 'superadmin') ||
+        (isAdmin() && existing().get('role', 'user') == 'user' && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+      ) && isValidUser(incoming());
+
+      // Delete logic: Master Gate
+      allow delete: if isVerified() && (
+        (isSuperAdmin() && existing().get('role', 'user') != 'superadmin') ||
+        (isAdmin() && existing().get('role', 'user') == 'user')
+      );
+    }
+
+    match /contracts/{contractId} {
+      // MANDATORY: Deny any list query that doesn't have a limit or exceeds 100 for normal users.
+      // This prevents collection scans of 50,000+ entries.
+      // Admins are allowed to perform larger queries for maintenance.
+      allow list: if isActive() && (isAdmin() || request.query.limit <= 100);
+      allow get: if isActive();
+      allow create, update: if isAdmin() && isValidContract(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /audit_logs/{logId} {
+      // Hierarchical logs: Admins can only see logs of Admin/User actions. Superadmins see all.
+      allow list: if isAdmin() && (isSuperAdmin() || resource.data.get('adminRole', 'user') != 'superadmin');
+      allow get: if isAdmin() && (isSuperAdmin() || resource.data.get('adminRole', 'user') != 'superadmin');
+      allow create: if isAdmin() && isValidAuditLog(incoming());
+      allow update, delete: if false;
+    }
+
+    match /search_logs/{logId} {
+      // Admins and Superadmins can see search logs.
+      allow list: if isAdmin();
+      allow get: if isAdmin();
+      // Any authenticated active user can create a search log when they search.
+      allow create: if isActive() && isValidSearchLog(incoming());
+      allow update, delete: if false;
+    }
+
+  }
+}
