@@ -1,6 +1,6 @@
 substitutions:
   _REGION: asia-southeast1
-  _SERVICE: bridge-portal-frontend
+  _SERVICE: bridge-portal
   _REPOSITORY: bridge-portal
 
 steps:
