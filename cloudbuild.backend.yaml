@@ -27,7 +27,7 @@ steps:
       - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA
       - --region=${_REGION}
       - --platform=managed
-      - --no-allow-unauthenticated
+      - --allow-unauthenticated
       - --service-account=bridge-portal-api@$PROJECT_ID.iam.gserviceaccount.com
       - --set-env-vars=^@^GCP_PROJECT_ID=$PROJECT_ID@AUTH_PROVIDER=legacy-firebase@ALLOWED_ORIGINS=http://localhost:3000,http://localhost:4173,http://10.18.160.164:3000,http://10.18.160.164:4173,https://ai-studio-applet-webapp-d20b8.web.app,https://ai-studio-applet-webapp-d20b8.firebaseapp.com,https://bridge-portal-268827847108.asia-southeast1.run.app
       - --update-secrets=FIRESTORE_DATABASE_ID=FIRESTORE_DATABASE_ID:latest
