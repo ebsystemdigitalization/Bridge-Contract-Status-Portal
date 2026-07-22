@@ -321,11 +321,13 @@ export const Login = () => {
             <div className="space-y-6">
               <div className="text-center py-4">
                 <h3 className="text-xl font-black text-cd-blue mb-2">Staff Portal Access</h3>
-                <p className="text-slate-400 text-sm font-medium">Please sign in using your designated Staff ID.</p>
+                <p className="text-slate-400 text-sm font-medium">Please sign in using your designated DMS ID.</p>
               </div>
               
               <button
-                onClick={() => loginWithADB2C(false)} // Explicitly false for popup
+                onClick={() => {
+                  window.location.href = "https://celcomdigib2c.b2clogin.com/celcomdigib2c.onmicrosoft.com/B2C_1_sign_in_with_id/oauth2/v2.0/authorize?client_id=b6389e9c-e12e-4050-ae0f-a0b8cde047ea&redirect_uri=https%3A%2F%2Fai-studio-applet-webapp-d20b8.web.app%2Flogin&response_type=code&scope=openid&prompt=login";
+                }}
                 disabled={loading}
                 className="w-full py-6 bg-cd-blue text-white font-black rounded-2xl hover:bg-cd-blue/90 active:scale-[0.98] transition-all flex items-center justify-center gap-4 shadow-xl shadow-cd-blue/20"
               >
@@ -333,8 +335,7 @@ export const Login = () => {
                   <Loader2 className="w-6 h-6 animate-spin" />
                 ) : (
                   <>
-                    <img src="https://www.google.com/s2/favicons?domain=microsoft.com&sz=32" className="w-6 h-6 rounded" alt="MS" />
-                    LOGIN WITH STAFF ID
+                    LOGIN WITH DMS ID
                   </>
                 )}
               </button>
