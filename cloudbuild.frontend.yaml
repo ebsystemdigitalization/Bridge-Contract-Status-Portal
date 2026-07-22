@@ -3,15 +3,54 @@ substitutions:
   _SERVICE: bridge-portal
   _REPOSITORY: bridge-portal
 
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/VITE_FIREBASE_API_KEY/versions/latest
+      env: VITE_FIREBASE_API_KEY
+
+    - versionName: projects/$PROJECT_ID/secrets/VITE_FIREBASE_AUTH_DOMAIN/versions/latest
+      env: VITE_FIREBASE_AUTH_DOMAIN
+
+    - versionName: projects/$PROJECT_ID/secrets/VITE_FIREBASE_PROJECT_ID/versions/latest
+      env: VITE_FIREBASE_PROJECT_ID
+
+    - versionName: projects/$PROJECT_ID/secrets/VITE_FIREBASE_APP_ID/versions/latest
+      env: VITE_FIREBASE_APP_ID
+
+    - versionName: projects/$PROJECT_ID/secrets/VITE_FIREBASE_STORAGE_BUCKET/versions/latest
+      env: VITE_FIREBASE_STORAGE_BUCKET
+
+    - versionName: projects/$PROJECT_ID/secrets/VITE_FIREBASE_MESSAGING_SENDER_ID/versions/latest
+      env: VITE_FIREBASE_MESSAGING_SENDER_ID
+
+    - versionName: projects/$PROJECT_ID/secrets/VITE_API_BASE_URL/versions/latest
+      env: VITE_API_BASE_URL
+
 steps:
   - name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    secretEnv:
+      - VITE_FIREBASE_API_KEY
+      - VITE_FIREBASE_AUTH_DOMAIN
+      - VITE_FIREBASE_PROJECT_ID
+      - VITE_FIREBASE_APP_ID
+      - VITE_FIREBASE_STORAGE_BUCKET
+      - VITE_FIREBASE_MESSAGING_SENDER_ID
+      - VITE_API_BASE_URL
     args:
-      - build
-      - -f
-      - Dockerfile.frontend
-      - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA
-      - .
+      - -c
+      - |
+        docker build \
+        -f Dockerfile.frontend \
+        --build-arg VITE_FIREBASE_API_KEY=$$VITE_FIREBASE_API_KEY \
+        --build-arg VITE_FIREBASE_AUTH_DOMAIN=$$VITE_FIREBASE_AUTH_DOMAIN \
+        --build-arg VITE_FIREBASE_PROJECT_ID=$$VITE_FIREBASE_PROJECT_ID \
+        --build-arg VITE_FIREBASE_APP_ID=$$VITE_FIREBASE_APP_ID \
+        --build-arg VITE_FIREBASE_STORAGE_BUCKET=$$VITE_FIREBASE_STORAGE_BUCKET \
+        --build-arg VITE_FIREBASE_MESSAGING_SENDER_ID=$$VITE_FIREBASE_MESSAGING_SENDER_ID \
+        --build-arg VITE_API_BASE_URL=$$VITE_API_BASE_URL \
+        -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA \
+        .
 
   - name: gcr.io/cloud-builders/docker
     args:
