@@ -12,7 +12,8 @@ export function validateProfilePayload(payload: any) {
   // but backend will not trust it.
   const allowedFields = new Set([
     'uid',
-    'username'
+    'username',
+    'email'
   ]);
 
   for (const key of Object.keys(payload)) {

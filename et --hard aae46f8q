@@ -1,0 +1,10 @@
+[33m211ed6d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Fix ADB2C login redirect flow
+[33m51c15b4[m Fix ADB2C login redirect flow
+[33m11d9adb[m Fix registration profile creation
+[33m55d38a1[m Fix registration profile creation
+[33ma491da8[m remove extra elements
+[33m5708bf0[m change redirect url
+[33maae46f8[m Fix user profile creation and UID handling
+[33mb936d51[m Fix nginx reverse proxy to Cloud Run backend
+[33mdce7fb1[m Update frontend build configuration for Vite variables
+[33m22a256a[m Use nginx proxy for API routing

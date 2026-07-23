@@ -326,7 +326,7 @@ export const Login = () => {
               
               <button
                 onClick={() => {
-                  window.location.href = "https://celcomdigib2c.b2clogin.com/celcomdigib2c.onmicrosoft.com/B2C_1_sign_in_with_id/oauth2/v2.0/authorize?client_id=b6389e9c-e12e-4050-ae0f-a0b8cde047ea&redirect_uri=https%3A%2F%2Fai-studio-applet-webapp-d20b8.web.app%2Flogin&response_type=code&scope=openid&prompt=login";
+                  window.location.href = "https://celcomdigib2c.b2clogin.com/celcomdigib2c.onmicrosoft.com/oauth2/v2.0/authorize?p=B2C_1_sign_in_with_id&client_id=b6389e9c-e12e-4050-ae0f-a0b8cde047ea&nonce=defaultNonce&redirect_uri=https%3A%2F%2Fbridge-portal-268827847108.asia-southeast1.run.app%2F&scope=openid&response_type=code&prompt=login&code_challenge_method=S256&code_challenge=7HUmQZPEw6fAAu2lQDhwtwxdtXV2AA3rtucZPsr-NdU";
                 }}
                 disabled={loading}
                 className="w-full py-6 bg-cd-blue text-white font-black rounded-2xl hover:bg-cd-blue/90 active:scale-[0.98] transition-all flex items-center justify-center gap-4 shadow-xl shadow-cd-blue/20"
