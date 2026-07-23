@@ -1,27 +1,47 @@
 import { Router } from 'express';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import admin from 'firebase-admin';
+
 import { config } from '../config.js';
 import { firestore, isFirestoreAvailable } from '../firebaseAdmin.js';
 
-const issuer = `https://${config.entraTenantName}.b2clogin.com/${config.entraTenantId}/v2.0/`;
-const jwksUrl = `https://${config.entraTenantName}.b2clogin.com/${config.entraTenantName}.onmicrosoft.com/${config.entraPolicy}/discovery/v2.0/keys`;
+
+const issuer =
+  `https://${config.adb2cTenantName}.b2clogin.com/${config.adb2cTenantId}/v2.0/`;
+
+const jwksUrl =
+  `https://${config.adb2cTenantName}.b2clogin.com/` +
+  `${config.adb2cTenantId}/` +
+  `${config.adb2cPolicy}/discovery/v2.0/keys`;
+
 const jwks = createRemoteJWKSet(new URL(jwksUrl));
+
 
 export const authRouter = Router();
 
+
+// Resolve Firebase username login
 authRouter.post('/resolve-login', async (req, res) => {
-  const username = String(req.body?.username || '').trim().toLowerCase();
+  const username = String(req.body?.username || '')
+    .trim()
+    .toLowerCase();
+
   if (!username) {
-    return res.status(400).json({ error: 'username is required.' });
+    return res.status(400).json({
+      error: 'username is required.'
+    });
   }
 
   if (username.includes('@')) {
-    return res.json({ email: username });
+    return res.json({
+      email: username
+    });
   }
 
   if (!isFirestoreAvailable() || !firestore) {
-    return res.status(503).json({ error: 'Firestore is not available.' });
+    return res.status(503).json({
+      error: 'Firestore is not available.'
+    });
   }
 
   const snapshot = await firestore
@@ -31,41 +51,198 @@ authRouter.post('/resolve-login', async (req, res) => {
     .get();
 
   if (snapshot.empty) {
-    return res.json({ email: `${username}@celcomdigi.com` });
+    return res.json({
+      email: `${username}@celcomdigi.com`
+    });
   }
 
   const user = snapshot.docs[0].data() as any;
-  return res.json({ email: user.email || `${username}@celcomdigi.com` });
+
+  return res.json({
+    email: user.email || `${username}@celcomdigi.com`
+  });
 });
 
-authRouter.post('/adb2c-sign-in', async (req, res) => {
-  const idToken = String(req.body?.idToken || '');
-  if (!idToken) {
-    return res.status(400).json({ error: 'idToken is required.' });
+
+// Azure AD B2C Callback
+authRouter.post('/adb2c/callback', async (req, res) => {
+  const {
+    code,
+    codeVerifier,
+    redirectUri
+  } = req.body;
+
+  if (!code || !codeVerifier || !redirectUri) {
+    return res.status(400).json({
+      error: 'code, codeVerifier and redirectUri are required.'
+    });
   }
 
-  if (config.entraAudience.startsWith('(configure') || config.entraTenantName.startsWith('(configure')) {
-    return res.status(500).json({ error: 'Entra ID token validation is not configured.' });
+  if (
+    !config.adb2cClientId ||
+    !config.adb2cClientSecret ||
+    !config.adb2cTenantId
+  ) {
+    return res.status(500).json({
+      error: 'ADB2C backend configuration missing.'
+    });
+  }
+
+  if (!isFirestoreAvailable() || !firestore) {
+    return res.status(503).json({
+      error: 'Firestore unavailable.'
+    });
   }
 
   try {
-    if (!isFirestoreAvailable() || !firestore) {
-      return res.status(503).json({ error: 'Firestore is not available.' });
-    }
-    const { payload } = await jwtVerify(idToken, jwks, {
-      issuer,
-      audience: config.entraAudience
+
+    // 1. Exchange authorization code with ADB2C
+    const tokenUrl =
+      `https://${config.adb2cTenantName}.b2clogin.com/` +
+      `${config.adb2cTenantId}/` +
+      `${config.adb2cPolicy}/oauth2/v2.0/token`;
+
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: config.adb2cClientId,
+        client_secret: config.adb2cClientSecret,
+        redirect_uri: redirectUri,
+        code,
+        code_verifier: codeVerifier
+      })
     });
 
-    const uid = String(payload.oid || payload.sub || '');
-    if (!uid) {
-      return res.status(401).json({ error: 'Token does not contain a usable subject.' });
+
+    if (!tokenResponse.ok) {
+      const error = await tokenResponse.text();
+
+      console.error(
+        'ADB2C token exchange failed:',
+        error
+      );
+
+      return res.status(401).json({
+        error: 'Failed to exchange ADB2C authorization code.'
+      });
     }
 
-    const customToken = await admin.auth().createCustomToken(uid, { provider: 'adb2c' });
-    return res.json({ customToken });
+
+    const tokenData = await tokenResponse.json();
+    const idToken = tokenData.id_token;
+
+
+    if (!idToken) {
+      return res.status(401).json({
+        error: 'No ID token returned from ADB2C.'
+      });
+    }
+
+
+    // 2. Verify ADB2C token
+    const { payload } = await jwtVerify(
+      idToken,
+      jwks,
+      {
+        issuer,
+        audience: config.adb2cClientId
+      }
+    );
+
+
+    const staffId = String(
+      payload.extension_StaffId ||
+      payload.oid ||
+      payload.sub ||
+      ''
+    ).toLowerCase();
+
+
+    if (!staffId) {
+      return res.status(401).json({
+        error: 'Unable to identify user.'
+      });
+    }
+
+
+    const username = String(
+      payload.name ||
+      payload.given_name ||
+      staffId
+    );
+
+
+    const email = String(
+      payload.email ||
+      payload.emails?.[0] ||
+      ''
+    ).toLowerCase();
+
+
+    // 3. Create Firebase UID
+    const uid = `adb2c_${staffId}`;
+
+
+    // 4. Create / update Firestore profile
+    const userRef = firestore
+      .collection('users')
+      .doc(uid);
+
+    const existing = await userRef.get();
+
+    const oldData = existing.exists
+      ? existing.data()
+      : {};
+
+
+    const userData = {
+      uid,
+      username,
+      email,
+      adb2cEmail: email,
+      authProvider: 'adb2c',
+      role: oldData?.role || 'user',
+      status: oldData?.status || 'Active',
+      lastLoginAt:
+        admin.firestore.FieldValue.serverTimestamp()
+    };
+
+
+    await userRef.set(userData, {
+      merge: true
+    });
+
+
+    // 5. Create Firebase custom token
+    const customToken = await admin.auth()
+      .createCustomToken(uid, {
+        provider: 'adb2c',
+        staffId
+      });
+
+
+    return res.json({
+      success: true,
+      customToken,
+      user: userData
+    });
+
+
   } catch (error) {
-    console.error('ADB2C sign-in failed:', error);
-    return res.status(401).json({ error: 'Invalid ADB2C token.' });
+
+    console.error(
+      'ADB2C callback failed:',
+      error
+    );
+
+    return res.status(500).json({
+      error: 'ADB2C authentication failed.'
+    });
   }
 });

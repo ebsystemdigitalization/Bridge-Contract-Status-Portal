@@ -23,6 +23,14 @@ steps:
       - VITE_FIREBASE_MESSAGING_SENDER_ID=268827847108
       - --build-arg
       - VITE_API_BASE_URL=https://bridge-portal-api-268827847108.asia-southeast1.run.app
+      - --build-arg
+      - VITE_ADB2C_CLIENT_ID=b6389e9c-e12e-4050-ae0f-a0b8cde047ea
+      - --build-arg
+      - VITE_ADB2C_TENANT_ID=celcomdigib2c.onmicrosoft.com
+      - --build-arg
+      - VITE_ADB2C_POLICY=B2C_1_sign_in_with_id
+      - --build-arg
+      - VITE_ADB2C_REDIRECT_URI=https://bridge-portal-268827847108.asia-southeast1.run.app/login
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA
       - .

@@ -147,10 +147,22 @@ export const portalApi = {
     });
   },
 
-  adb2cSignIn(idToken: string) {
-    return apiRequest<{ customToken: string }>('/api/auth/adb2c-sign-in', {
+  adb2cCallback(
+    code: string,
+    codeVerifier: string,
+    redirectUri: string
+  ) {
+    return apiRequest<{
+      success: boolean;
+      customToken: string;
+      user: UserProfile;
+    }>('/api/auth/adb2c/callback', {
       method: 'POST',
-      body: JSON.stringify({ idToken })
+      body: JSON.stringify({
+        code,
+        codeVerifier,
+        redirectUri
+      })
     });
   }
 };

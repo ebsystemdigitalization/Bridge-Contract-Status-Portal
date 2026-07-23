@@ -181,85 +181,74 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const handleADB2CCallback = async (code: string, state?: string | null) => {
+  const handleADB2CCallback = async (
+    code: string,
+    state?: string | null
+  ) => {
+
     setLoading(true);
+
     try {
+
       const verifier = localStorage.getItem('_sys_v1');
-      const storedState = normalizeState(localStorage.getItem('_sys_state'));
+
+      const storedState = normalizeState(
+        localStorage.getItem('_sys_state')
+      );
+
       const receivedState = normalizeState(state);
-      if (!verifier) throw new Error('Missing code verifier');
+
+
+      if (!verifier) {
+        throw new Error('Missing code verifier');
+      }
+
+
       if (!validateAuthState(storedState, receivedState)) {
         throw new Error('Invalid authentication state');
       }
 
-      const clientId = requiredEnv('VITE_ADB2C_CLIENT_ID');
-      const tenantId = requiredEnv('VITE_ADB2C_TENANT_ID');
-      const policy = requiredEnv('VITE_ADB2C_POLICY');
-      const redirectUri = import.meta.env.VITE_ADB2C_REDIRECT_URI || window.location.origin + '/login';
 
-      const tokenUrl = `https://celcomdigib2c.b2clogin.com/${tenantId}/${policy}/oauth2/v2.0/token`;
-      
-      const response = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          client_id: clientId,
-          redirect_uri: redirectUri,
-          code: code,
-          code_verifier: verifier
-        })
-      });
+      const redirectUri =
+        import.meta.env.VITE_ADB2C_REDIRECT_URI ||
+        window.location.origin + '/login';
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error_description || 'Failed to exchange code');
-      }
 
-      const data = await response.json();
-      const idToken = data.id_token;
-      const decoded: any = jwtDecode(idToken);
-      
-      // Extract Staff ID (format: 20601112)
-      // Usually in 'extension_StaffId' or can be found in other claims
-      const staffId = (decoded.extension_StaffId || decoded.oid || decoded.sub || 'unknown').toLowerCase();
-      const username = decoded.name || decoded.given_name || staffId;
-      const realEmail = (decoded.email || decoded.emails?.[0] || `${staffId}@celcomdigi.com`).toLowerCase();
+      // Send authorization code to backend
+      const response =
+        await portalApi.adb2cCallback(
+          code,
+          verifier,
+          redirectUri
+        );
 
-      const signInResponse = await portalApi.adb2cSignIn(idToken);
-      const firebaseCredential = await signInWithCustomToken(auth, signInResponse.customToken);
-      const firebaseUser = firebaseCredential.user;
 
-      if (!firebaseUser) {
-        throw new Error('Firebase login failed after ADB2C validation.');
-      }
+      // Login Firebase using backend custom token
+      await signInWithCustomToken(
+        auth,
+        response.customToken
+      );
 
-      const adb2cUid = firebaseUser.uid;
-      const authToken = await firebaseUser.getIdToken();
-      const profileResponse = await portalApi.upsertMyProfile(authToken, {
-        uid: adb2cUid,
-        username,
-        email: realEmail,
-        role: 'user',
-        status: UserStatus.ACTIVE,
-        adb2cEmail: realEmail
-      });
-      const profileData = profileResponse.profile;
 
-      // User profile is now kept in-memory only (removed localStorage cache to hide from DevTools)
-      setUser(firebaseUser);
-      setProfile(profileData);
-      setIsADB2C(true);
-      
       localStorage.removeItem('_sys_v1');
       localStorage.removeItem('_sys_state');
-      
-    } catch (error) {
-      console.error('ADB2C Callback Error:', error);
+
+
+    } catch(error) {
+
+      console.error(
+        'ADB2C Callback Error:',
+        error
+      );
+
       throw error;
+
     } finally {
+
       setLoading(false);
+
     }
+
   };
 
   useEffect(() => {
@@ -268,8 +257,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(firebaseUser);
         
         // Check if this is an ADB2C shadow account (either domain)
-        setIsADB2C(firebaseUser.email?.endsWith('.adb2c@celcomdigi.com') || firebaseUser.email?.endsWith('@adb2c.internal') || false);
-        
+        setIsADB2C(
+          firebaseUser.uid.startsWith('adb2c_')
+        );
         // Removed localStorage cache check to hide profile from DevTools
 
         try {
@@ -290,42 +280,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  const register = async (username: string, inputEmail: string, password: string) => {
-    const email = inputEmail.includes('@') ? inputEmail.trim().toLowerCase() : `${inputEmail.trim().toLowerCase()}@bridge.com`;
+  const register = async (
+    username: string,
+    inputEmail: string,
+    password: string
+  ) => {
+    const email = inputEmail.includes("@")
+      ? inputEmail.trim().toLowerCase()
+      : `${inputEmail.trim().toLowerCase()}@bridge.com`;
+
     const bootstrapEmails = [import.meta.env.VITE_ADMIN_EMAIL].filter(Boolean);
+
     const isBootstrap = bootstrapEmails.includes(email);
-    const role = isBootstrap ? 'superadmin' : 'user';
-    const status = isBootstrap ? UserStatus.ACTIVE : UserStatus.PENDING;
+
+    const role = isBootstrap ? "superadmin" : "user";
+    const status = isBootstrap
+      ? UserStatus.ACTIVE
+      : UserStatus.PENDING;
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const uid = userCredential.user.uid;
-      const newProfile: UserProfile = {
-        uid,
-        username,
+      // Create Firebase Authentication account
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
         email,
-        role,
-        status,
-        createdAt: new Date().toISOString(),
-        lastLoginAt: new Date().toISOString()
-      };
-      try {
-        const authToken = await userCredential.user.getIdToken();
-        const response = await portalApi.upsertMyProfile(authToken, newProfile);
+        password
+      );
 
-        setProfile(response.profile);
+      const firebaseUser = userCredential.user;
 
-        // Prevent auto-login after registration
-        await signOut(auth);
+      const authToken = await firebaseUser.getIdToken();
 
-        setUser(null);
-        setProfile(null);
-      } catch (profileErr: any) {
-        console.error("User profile creation error:", profileErr);
-        throw profileErr;
-      }
-    } catch (error: any) {
-      throw error;
+      // Create Firestore profile through backend
+      const response = await portalApi.upsertMyProfile(authToken, {
+        uid: firebaseUser.uid,
+        username
+      });
+
+      setProfile(response.profile);
+
+      // Prevent automatic login after registration
+      await signOut(auth);
+
+      setUser(null);
+      setProfile(null);
+    } catch (err) {
+      console.error("Registration failed:", err);
+      throw err;
     }
   };
 
