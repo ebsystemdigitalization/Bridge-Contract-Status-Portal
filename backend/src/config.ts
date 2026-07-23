@@ -20,5 +20,12 @@ export const config = {
   adb2cPolicy: readEnv('ADB2C_POLICY') || 'B2C_1_sign_in_with_id',
   adb2cClientId: readEnv('ADB2C_CLIENT_ID') || '',
   adb2cClientSecret: readEnv('ADB2C_CLIENT_SECRET') || '',
-  authProvider: readEnv('AUTH_PROVIDER') || 'hybrid'
+
+  authProvider: readEnv('AUTH_PROVIDER') || 'hybrid',
+
+  // compatibility for auth middleware
+  entraTenantName: process.env.ADB2C_TENANT_NAME || '',
+  entraTenantId: process.env.ADB2C_TENANT_ID || '',
+  entraPolicy: process.env.ADB2C_POLICY || '',
+  entraAudience: process.env.ADB2C_CLIENT_ID || '',
 };

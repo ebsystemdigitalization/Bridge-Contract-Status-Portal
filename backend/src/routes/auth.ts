@@ -146,7 +146,15 @@ authRouter.post('/adb2c/callback', async (req, res) => {
 
 
     // 2. Verify ADB2C token
-    const { payload } = await jwtVerify(
+    const { payload } = await jwtVerify<{
+      extension_StaffId?: string;
+      oid?: string;
+      sub?: string;
+      name?: string;
+      given_name?: string;
+      email?: string;
+      emails?: string[];
+    }>(
       idToken,
       jwks,
       {
