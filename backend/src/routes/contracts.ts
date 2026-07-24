@@ -94,7 +94,7 @@ contractsRouter.post('/import', requireAuth, requireAdmin, importLimiter, async 
   if (!contracts.length) {
     return res.status(400).json({ error: 'contracts array is required.' });
   }
-  if (contracts.length > 5000) {
+  if (contracts.length > 100000) {
     return res.status(413).json({ error: 'Import payload is too large.' });
   }
   if (contracts.some((item: any) => !item || typeof item !== 'object' || Array.isArray(item))) {
