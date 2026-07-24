@@ -80,7 +80,6 @@ authRouter.post('/adb2c/callback', async (req, res) => {
 
   if (
     !config.adb2cClientId ||
-    !config.adb2cClientSecret ||
     !config.adb2cTenantId
   ) {
     return res.status(500).json({
@@ -112,7 +111,6 @@ authRouter.post('/adb2c/callback', async (req, res) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         client_id: config.adb2cClientId,
-        client_secret: config.adb2cClientSecret,
         redirect_uri: redirectUri,
         code,
         code_verifier: codeVerifier
