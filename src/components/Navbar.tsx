@@ -6,13 +6,13 @@ import { Logo } from './Logo';
 import { cn } from '../lib/utils';
 
 export const Navbar = () => {
-  const { user, profile, isAdmin, logout, loginWithADB2C } = useAuth();
+  const { user, profile, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleLogout = async () => {
     await logout();
-    navigate('/');
+    navigate('/login');
   };
 
   const navItems = [

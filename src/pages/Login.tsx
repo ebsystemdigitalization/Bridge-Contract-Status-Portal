@@ -35,17 +35,9 @@ export const Login = () => {
   const [codeProcessed, setCodeProcessed] = useState(false);
 
   // 1. Initialize Admin mode from URL - now using a secret key
-  // Initialize login mode
   useEffect(() => {
-    const isAdmin =
-      searchParams.get('access') === 'admin';
-    setIsAdminLogin(isAdmin);
-
-    // Normal user access
-    // / 
-    // automatically redirect to ADB2C
-    if (!isAdmin && !searchParams.get('code')) {
-      loginWithADB2C(true);
+    if (searchParams.get('access') === 'admin') {
+      setIsAdminLogin(true);
     }
   }, [searchParams]);
 
@@ -131,11 +123,7 @@ export const Login = () => {
   useEffect(() => {
     if (user && profile) {
       if (profile.status === 'Active') {
-        if (profile.role === 'admin' || profile.role === 'superadmin') {
-          navigate('/admin');
-        } else {
-          navigate('/');
-        }
+        navigate('/');
       } else if (profile.status === 'Pending') {
         setError('Your account is awaiting admin approval.');
       } else if (profile.status === 'Rejected') {
@@ -278,7 +266,6 @@ export const Login = () => {
         </div>
 
         <div className="bg-white p-10 rounded-4xl shadow-2xl shadow-slate-200/60 border border-slate-100 transition-all">
-          {isAdminLogin && (
           <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8">
             <button
               onClick={() => { 
@@ -310,7 +297,6 @@ export const Login = () => {
               Admin
             </button>
           </div>
-          )}
 
           <AnimatePresence mode="wait">
             {error && (
