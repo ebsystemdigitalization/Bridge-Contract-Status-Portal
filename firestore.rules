@@ -22,14 +22,6 @@ service cloud.firestore {
       );
     }
 
-    // Master Owner access for initial setup/recovery
-    function isOwner() {
-      return isSignedIn() && (
-        request.auth.token.email == 'ebsystemdigitalization@gmail.com' ||
-        request.auth.token.email == 'ebsystemdigitalization@celcomdigi.com'
-      );
-    }
-
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -130,7 +122,8 @@ service cloud.firestore {
       // Update logic: Self (limited fields) or Admin/SuperAdmin
       allow update: if isSignedIn() && (
         (request.auth.uid == userId && 
-         incoming().diff(existing()).affectedKeys().hasOnly(['username', 'email', 'lastLoginAt', 'status', 'adb2cEmail'])) ||
+         incoming().diff(existing()).affectedKeys().hasOnly(['username', 'email', 'lastLoginAt', 'adb2cEmail']) &&
+         incoming().get('status', existing().get('status', 'Pending')) == existing().get('status', 'Pending')) ||
         (isSuperAdmin() && existing().get('role', 'user') != 'superadmin') ||
         (isAdmin() && existing().get('role', 'user') == 'user' && 
          incoming().diff(existing()).affectedKeys().hasOnly(['status']))

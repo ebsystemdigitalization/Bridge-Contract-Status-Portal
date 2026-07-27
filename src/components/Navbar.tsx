@@ -6,12 +6,15 @@ import { Logo } from './Logo';
 import { cn } from '../lib/utils';
 
 export const Navbar = () => {
-  const { user, profile, isAdmin, logout } = useAuth();
+  const { user, profile, isAdmin, logout, loginWithADB2C } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleLogout = async () => {
     await logout();
+
+    // Redirect directly to ADB2C login
+    await loginWithADB2C(true);
   };
 
   const navItems = [

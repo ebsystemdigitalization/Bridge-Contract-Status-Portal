@@ -1,0 +1,65 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'background': '#ffffff', 'primaryColor': '#ffffff', 'lineColor': '#666666' }}}%%
+flowchart LR
+    classDef process fill:#6baed6,stroke:#2171b5,stroke-width:2px,color:#000000
+    classDef external fill:#fdae61,stroke:#d94701,stroke-width:2px,color:#000000
+    classDef datastore fill:#74c476,stroke:#238b45,stroke-width:2px,color:#000000
+
+    EndUser["End User"]:::external
+    AdminUser["Admin User"]:::external
+    AzureADB2C["Azure AD B2C"]:::external
+    FirebaseAuth["Firebase Authentication"]:::external
+    GoogleSecretManager["Google Secret Manager"]:::external
+
+    subgraph PublicZone["Public Cloud Run Edge"]
+        BrowserClient(("Browser Client")):::process
+        NginxFrontend(("React Frontend Cloud Run")):::process
+        ExpressApi(("Express Backend API Cloud Run")):::process
+    end
+
+    subgraph BackendServices["Backend API Modules"]
+        AuthRouter(("Auth Router")):::process
+        AuthMiddleware(("Auth Middleware")):::process
+        MeRouter(("Me Router")):::process
+        ContractsRouter(("Contracts Router")):::process
+        AdminRouter(("Admin Router")):::process
+        FirestoreAdminClient(("Firestore Admin Client")):::process
+    end
+
+    subgraph DataStorage["Managed Data Stores"]
+        FirestoreDatabase[("Firestore Database")]:::datastore
+        FirestoreRules[("Firestore Security Rules")]:::datastore
+    end
+
+    subgraph CICD["Build and Deployment"]
+        CloudBuildCloudRun(("Cloud Build and Cloud Run Config")):::process
+    end
+
+    EndUser <-->|"DF01: HTTPS portal use"| BrowserClient
+    AdminUser <-->|"DF02: HTTPS admin use"| BrowserClient
+    BrowserClient <-->|"DF03: HTTPS static assets and proxied API"| NginxFrontend
+    NginxFrontend <-->|"DF04: HTTPS /api proxy with Authorization"| ExpressApi
+    BrowserClient <-->|"DF05: OIDC authorize code with PKCE"| AzureADB2C
+    BrowserClient <-->|"DF06: Firebase signInWithCustomToken and ID token"| FirebaseAuth
+    ExpressApi <-->|"DF07: /api/auth routes"| AuthRouter
+    ExpressApi -->|"DF08: Bearer token validation"| AuthMiddleware
+    ExpressApi <-->|"DF09: /api/me routes"| MeRouter
+    ExpressApi <-->|"DF10: /api/contracts routes"| ContractsRouter
+    ExpressApi <-->|"DF11: /api/admin routes"| AdminRouter
+    AuthRouter <-->|"DF12: Token exchange and JWKS validation"| AzureADB2C
+    AuthRouter <-->|"DF13: Firebase custom token minting"| FirebaseAuth
+    AuthMiddleware <-->|"DF14: Firebase ID token verification"| FirebaseAuth
+    MeRouter <-->|"DF15: profile reads and writes"| FirestoreAdminClient
+    ContractsRouter <-->|"DF16: contract and search log reads and writes"| FirestoreAdminClient
+    AdminRouter <-->|"DF17: user and audit log administration"| FirestoreAdminClient
+    FirestoreAdminClient <-->|"DF18: Firestore Admin SDK REST transport"| FirestoreDatabase
+    FirestoreRules -->|"DF19: client-side direct Firestore policy"| FirestoreDatabase
+    BrowserClient -.->|"DF20: possible direct Firebase SDK access if abused"| FirestoreRules
+    CloudBuildCloudRun -->|"DF21: image build, env vars, service deploy"| NginxFrontend
+    CloudBuildCloudRun -->|"DF22: image build, secrets, service account deploy"| ExpressApi
+    ExpressApi <-->|"DF23: secret reads for optional Excel crypto"| GoogleSecretManager
+
+    style PublicZone fill:none,stroke:#e31a1c,stroke-width:3px,stroke-dasharray: 5 5
+    style BackendServices fill:none,stroke:#e31a1c,stroke-width:3px,stroke-dasharray: 5 5
+    style DataStorage fill:none,stroke:#e31a1c,stroke-width:3px,stroke-dasharray: 5 5
+    style CICD fill:none,stroke:#e31a1c,stroke-width:3px,stroke-dasharray: 5 5
+    linkStyle default stroke:#666666,stroke-width:2px
