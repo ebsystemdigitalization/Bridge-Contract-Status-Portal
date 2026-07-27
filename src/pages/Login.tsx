@@ -1,18 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, Loader2, User, Mail, Lock, ShieldCheck, UserCheck, ShieldAlert } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
-import { Logo } from '../components/Logo';
 import { isTrustedMessageOrigin } from '../lib/adb2cAuth';
 
 export const Login = () => {
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [isAdminLogin, setIsAdminLogin] = useState(false);
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -22,8 +16,6 @@ export const Login = () => {
   const { 
     user, 
     profile, 
-    login, 
-    register, 
     loginWithADB2C, 
     handleADB2CCallback,
     sessionExpired, 
@@ -33,13 +25,6 @@ export const Login = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [codeProcessed, setCodeProcessed] = useState(false);
-
-  // 1. Initialize Admin mode from URL - now using a secret key
-  useEffect(() => {
-    if (searchParams.get('access') === 'admin') {
-      setIsAdminLogin(true);
-    }
-  }, [searchParams]);
 
   // 2. Handle ADB2C callback flow
   useEffect(() => {
@@ -132,99 +117,6 @@ export const Login = () => {
     }
   }, [user, profile, navigate]);
 
-  const passwordRequirements = {
-    length: password.length >= 12,
-    uppercase: /[A-Z]/.test(password),
-    lowercase: /[a-z]/.test(password),
-    number: /[0-9]/.test(password),
-    special: /[!@#$%^&*()_\-+=<>?/[\]{}|\\:;"',.~`]/.test(password)
-  };
-
-  const [showPassword,setShowPassword] = useState(false);
-
-  const validatePassword = () => {
-
- const req = passwordRequirements;
-  if(!req.length)
-    return "Password must contain at least 12 characters.";
-
-  if(!req.uppercase)
-    return "Password must contain an uppercase letter.";
-
-  if(!req.lowercase)
-    return "Password must contain a lowercase letter.";
-
-  if(!req.number)
-    return "Password must contain a number.";
-
-  if(!req.special)
-    return "Password must contain a special character.";
-
-  return null;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (lockoutTime) return;
-
-    setError('');
-    setLoading(true);
-
-    try {
-      if (isRegistering) {
-        const validation = validatePassword(password);
-
-        if (validation)
-          throw new Error(validation);
-
-        const usernameVal = email.trim().split('@')[0];
-
-        await register(usernameVal, email.trim(), password);  
-        setPassword('');
-        setEmail('');
-        setError('Registration successful! Your account is awaiting admin approval.');
-      } else {
-        await login(email.trim(), password);
-        setFailedAttempts(0); 
-        navigate('/');
-      }
-    } catch (err: any) {
-      console.error("Auth Error:", err);
-      
-      if (!isRegistering) {
-        const newAttempts = failedAttempts + 1;
-        setFailedAttempts(newAttempts);
-        
-        if (newAttempts >= 5) {
-          const unlockAt = Date.now() + 30000;
-          setLockoutTime(unlockAt);
-          setError(`Security Breach Protection: Too many failed attempts. Locked for 30 seconds.`);
-          setLoading(false);
-          return;
-        }
-      }
-
-      let friendlyMessage = err.message || 'Authentication failed. Please try again.';
-      const errorCode = err.code || (err.message?.includes('auth/') ? err.message.match(/auth\/[a-z0-9-]+/)?.[0] : null);
-
-      if (errorCode === 'auth/email-already-in-use') {
-        friendlyMessage = 'This account already exists. Please sign in instead.';
-      } else if (errorCode === 'auth/invalid-email') {
-        friendlyMessage = 'Please enter a valid email address.';
-      } else if (errorCode === 'auth/weak-password') {
-        friendlyMessage = 'The password is too weak. Please use at least 6 characters.';
-      } else if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
-        friendlyMessage = 'Invalid credentials. Please check your username/email and password.';
-      } else if (errorCode === 'auth/too-many-requests') {
-        friendlyMessage = 'Too many failed attempts. Please try again later.';
-      }
-      
-      setError(friendlyMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Show loader only while processing an ADB2C callback code.
   const isProcessingCode = !!searchParams.get('code');
 
@@ -265,38 +157,7 @@ export const Login = () => {
           </div>
         </div>
 
-        <div className="bg-white p-10 rounded-4xl shadow-2xl shadow-slate-200/60 border border-slate-100 transition-all">
-          <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-8">
-            <button
-              onClick={() => { 
-                setIsAdminLogin(false); 
-                setError('');
-                // Remove access=admin from URL when switching to Staff
-                if (searchParams.get('access') === 'admin') {
-                  const newParams = new URLSearchParams(searchParams);
-                  newParams.delete('access');
-                  navigate(`/login?${newParams.toString()}`, { replace: true });
-                }
-              }}
-              className={cn(
-                "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all gap-2 flex items-center justify-center",
-                !isAdminLogin ? "bg-white text-cd-blue shadow-lg" : "text-slate-400 hover:text-slate-600"
-              )}
-            >
-              <UserCheck className="w-4 h-4" />
-              Staff
-            </button>
-            <button
-              onClick={() => { setIsAdminLogin(true); setError(''); }}
-              className={cn(
-                "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all gap-2 flex items-center justify-center",
-                isAdminLogin ? "bg-white text-cd-blue shadow-lg" : "text-slate-400 hover:text-slate-600"
-              )}
-            >
-              <ShieldCheck className="w-4 h-4" />
-              Admin
-            </button>
-          </div>
+                <div className="bg-white p-10 rounded-4xl shadow-2xl shadow-slate-200/60 border border-slate-100 transition-all">
 
           <AnimatePresence mode="wait">
             {error && (
@@ -317,156 +178,41 @@ export const Login = () => {
             )}
           </AnimatePresence>
 
-          {!isAdminLogin ? (
-            <div className="space-y-6">
-              <div className="text-center py-4">
-                <h3 className="text-xl font-black text-cd-blue mb-2">Staff Portal Access</h3>
-                <p className="text-slate-400 text-sm font-medium">Please sign in using your designated DMS ID.</p>
-              </div>
-              
-              <button
-                onClick={() => loginWithADB2C(true)}
-                disabled={loading}
-                className="w-full py-6 bg-cd-blue text-white font-black rounded-2xl hover:bg-cd-blue/90 active:scale-[0.98] transition-all flex items-center justify-center gap-4 shadow-xl shadow-cd-blue/20"
-              >
-                {loading ? (
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                ) : (
-                  <>
-                    LOGIN WITH DMS ID
-                  </>
-                )}
-              </button>
-              
-              <div className="pt-4 text-center">
-                <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                  Secure Identity verification via Azure AD B2C
-                </p>
-              </div>
+
+          <div className="space-y-6">
+
+            <div className="text-center py-4">
+              <h3 className="text-xl font-black text-cd-blue mb-2">
+                Staff Portal Access
+              </h3>
+
+              <p className="text-slate-400 text-sm font-medium">
+                Please sign in using your designated DMS ID.
+              </p>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="flex bg-slate-50 p-1.5 rounded-2xl mb-4">
-                <button
-                  type="button"
-                  onClick={() => setIsRegistering(false)}
-                  className={cn(
-                    "flex-1 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
-                    !isRegistering ? "bg-white text-cd-blue shadow" : "text-slate-400"
-                  )}
-                >
-                  Sign In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsRegistering(true)}
-                  className={cn(
-                    "flex-1 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
-                    isRegistering ? "bg-white text-cd-blue shadow" : "text-slate-400"
-                  )}
-                >
-                  Register
-                </button>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">
-                  ADMIN USERNAME
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <input
-                    type="text"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-cd-blue/10 focus:border-cd-blue outline-none font-bold text-slate-700 transition-all placeholder:text-slate-300"
-                    placeholder="username"
-                  />
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">PASSWORD</label>
-                <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:ring-4 focus:ring-cd-blue/10 focus:border-cd-blue outline-none font-bold text-slate-700 transition-all placeholder:text-slate-300"
-                    placeholder="••••••••"
-                  />
+            <button
+              onClick={() => loginWithADB2C(true)}
+              disabled={loading}
+              className="w-full py-6 bg-cd-blue text-white font-black rounded-2xl hover:bg-cd-blue/90 active:scale-[0.98] transition-all flex items-center justify-center gap-4 shadow-xl shadow-cd-blue/20"
+            >
+              {loading ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                "LOGIN WITH DMS ID"
+              )}
+            </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-black text-cd-blue hover:text-cd-blue/70"
-                  >
-                    {showPassword ? "HIDE" : "SHOW"}
-                  </button>
-                </div>
 
-                {isRegistering && (
-                  <div className="mt-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-                      Password Requirements
-                    </p>
+            <div className="pt-4 text-center">
+              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                Secure Identity verification via Azure AD B2C
+              </p>
+            </div>
 
-                    <div className="space-y-2 text-xs font-bold">
+          </div>
 
-                      <div className={passwordRequirements.length ? "text-emerald-600" : "text-slate-400"}>
-                        {passwordRequirements.length ? "✓" : "○"} At least 12 characters
-                      </div>
-
-                      <div className={passwordRequirements.uppercase ? "text-emerald-600" : "text-slate-400"}>
-                        {passwordRequirements.uppercase ? "✓" : "○"} One uppercase letter (A-Z)
-                      </div>
-
-                      <div className={passwordRequirements.lowercase ? "text-emerald-600" : "text-slate-400"}>
-                        {passwordRequirements.lowercase ? "✓" : "○"} One lowercase letter (a-z)
-                      </div>
-
-                      <div className={passwordRequirements.number ? "text-emerald-600" : "text-slate-400"}>
-                        {passwordRequirements.number ? "✓" : "○"} One number (0-9)
-                      </div>
-
-                      <div className={passwordRequirements.special ? "text-emerald-600" : "text-slate-400"}>
-                        {passwordRequirements.special ? "✓" : "○"} One special character (!@#$%^&*)
-                      </div>
-
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              
-
-              <button
-                type="submit"
-                disabled={
-                loading ||
-                !!lockoutTime ||
-                (isRegistering && !!validatePassword())
-                }
-                className={cn(
-                  "w-full py-5 text-white font-black rounded-2xl active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3 shadow-2xl",
-                  lockoutTime ? "bg-slate-400 shadow-none cursor-not-allowed" : "bg-cd-blue hover:bg-cd-blue/90 shadow-cd-blue/30"
-                )}
-              >
-                {loading ? (
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                ) : lockoutTime ? (
-                  `LOCKED (${timeRemaining}s)`
-                ) : isRegistering ? (
-                  'CREATE ADMIN ACCOUNT'
-                ) : (
-                  'ADMIN SIGN IN'
-                )}
-              </button>
-            </form>
-          )}
         </div>
       </motion.div>
     </div>

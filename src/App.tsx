@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Navbar } from './components/Navbar';
 import { Login } from './pages/Login';
+import { LoginAdmin } from './pages/LoginAdmin';
 import { SearchPage } from './pages/SearchPage';
 import { AdminPanel } from './pages/AdminPanel';
 import { MaintenancePage } from './pages/MaintenancePage';
@@ -19,6 +20,7 @@ export default function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/login-admin" element={<LoginAdmin />} />
             <Route path="/" element={
               <ProtectedRoute>
                 <div className="min-h-screen">
