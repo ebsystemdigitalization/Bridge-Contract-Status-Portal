@@ -131,11 +131,10 @@ export const Login = () => {
   useEffect(() => {
     if (user && profile) {
       if (profile.status === 'Active') {
-          if (profile.role === 'admin' || profile.role === 'superadmin') {
-              navigate('/admin');
-          } else {
-              navigate('/');
-          }
+        if (profile.role === 'admin' || profile.role === 'superadmin') {
+          navigate('/admin');
+        } else {
+          navigate('/');
         }
       } else if (profile.status === 'Pending') {
         setError('Your account is awaiting admin approval.');
