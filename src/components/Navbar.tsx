@@ -12,9 +12,7 @@ export const Navbar = () => {
 
   const handleLogout = async () => {
     await logout();
-
-    // Redirect directly to ADB2C login
-    await loginWithADB2C(true);
+    navigate('/');
   };
 
   const navItems = [
