@@ -12,7 +12,6 @@ export const Navbar = () => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
   };
 
   const navItems = [

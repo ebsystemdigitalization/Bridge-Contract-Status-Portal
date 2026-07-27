@@ -256,7 +256,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (firebaseUser) {
         setUser(firebaseUser);
         
-        // Check if this is an ADB2C shadow account (either domain)
+        // Detect ADB2C users created through backend custom token
         setIsADB2C(
           firebaseUser.uid.startsWith('adb2c_')
         );
@@ -344,10 +344,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = async () => {
-    setUser(null);
-    setProfile(null);
-    setIsADB2C(false);
-    await signOut(auth);
+    try {
+      setUser(null);
+      setProfile(null);
+      setIsADB2C(false);
+
+      // Logout Firebase session
+      await signOut(auth);
+
+      // Clear PKCE/session artifacts
+      localStorage.removeItem('_sys_v1');
+      localStorage.removeItem('_sys_state');
+
+      // ADB2C logout
+      const tenantId = requiredEnv('VITE_ADB2C_TENANT_ID');
+      const policy = requiredEnv('VITE_ADB2C_POLICY');
+      const clientId = requiredEnv('VITE_ADB2C_CLIENT_ID');
+
+      const redirectUri =
+        import.meta.env.VITE_ADB2C_REDIRECT_URI ||
+        window.location.origin + '/login';
+
+      const logoutUrl =
+        `https://celcomdigib2c.b2clogin.com/${tenantId}/${policy}/oauth2/v2.0/logout?` +
+        `client_id=${clientId}&` +
+        `post_logout_redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+      window.location.href = logoutUrl;
+
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   const value = {
