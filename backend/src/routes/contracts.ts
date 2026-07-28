@@ -3,6 +3,8 @@ import { firestore, isFirestoreAvailable, serverTimestamp, writeBatch } from '..
 import { requireAdmin, requireAuth, requireSuperAdmin } from '../middleware/auth.js';
 import { createRateLimiter } from '../middleware/rateLimit.js';
 import { serializeDoc } from '../utils/firestore.js';
+import multer from 'multer';
+import { parseExcelBuffer } from '../services/excelImporter.js';
 
 export function validateContractPayload(contract: any) {
   if (!contract || typeof contract !== 'object' || Array.isArray(contract)) {

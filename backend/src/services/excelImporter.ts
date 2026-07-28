@@ -1,23 +1,23 @@
 import * as XLSX from 'xlsx';
 
-function parseExcelDate(value) {
+function parseExcelDate(value: unknown): string {
     if (!value || value === 'N/A') {
         return 'N/A';
     }
-
     try {
-        let date;
+        let date: Date;
         // Excel serial date
         if (!isNaN(Number(value)) && Number(value) > 10000) {
             const excelEpoch = new Date(1899, 11, 30);
+
             date = new Date(
                 excelEpoch.getTime() + Number(value) * 86400000
             );
         } 
-        // Normal date string
         else {
-            date = new Date(value);
+            date = new Date(String(value));
         }
+
         if (isNaN(date.getTime())) {
             return String(value).trim();
         }
@@ -27,7 +27,49 @@ function parseExcelDate(value) {
     }
 }
 
-export function parseExcelBuffer(buffer) {
+function calculateContractStatus(contractEndDate: string) {
+    if (!contractEndDate || contractEndDate === 'N/A') {
+        return {
+            status: 'ACTIVE',
+            remainingMonths: 0
+        };
+    }
+
+    try {
+        const [day, month, year] = contractEndDate
+            .split('/')
+            .map(Number);
+        const endDate = new Date(
+            year,
+            month - 1,
+            day
+        );
+        const today = new Date();
+
+        if (endDate < today) {
+            return {
+                status: 'EXPIRED',
+                remainingMonths: 0
+            };
+        }
+
+        const diffMonths =
+            (endDate.getFullYear() - today.getFullYear()) * 12 +
+            (endDate.getMonth() - today.getMonth());
+
+        return {
+            status: 'ACTIVE',
+            remainingMonths: Math.max(diffMonths, 0)
+        };
+    } catch {
+        return {
+            status: 'ACTIVE',
+            remainingMonths: 0
+        };
+    }
+}
+
+export function parseExcelBuffer(buffer: Buffer) {
     const workbook = XLSX.read(buffer, {
         type: 'buffer'
     });
@@ -38,16 +80,15 @@ export function parseExcelBuffer(buffer) {
     }
 
     const worksheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json(worksheet, {
-        defval: ''
-    });
+    const rows =
+        XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+            defval: ''
+        });
 
     if (!rows.length) {
         throw new Error('Excel file is empty.');
     }
-
-    return rows.map(row => {
-
+    return rows.map((row: Record<string, unknown>) => {
         const billingAccountNumber =
             String(
                 row.BILLING_ACCOUNT_NUMBER ||
@@ -128,7 +169,13 @@ export function parseExcelBuffer(buffer) {
                 'N/A'
             ).trim();
 
+        const {
+            status,
+            remainingMonths
+        } = calculateContractStatus(contractEndDate);
+
         return {
+
             billingAccountNumber,
             msisdn,
             productName,
@@ -139,12 +186,8 @@ export function parseExcelBuffer(buffer) {
             contractDuration,
             contractPenaltyAmount,
             segment,
-
-            // Default value.
-            // Your previous frontend calculated this dynamically.
-            contractStatus: 'ACTIVE',
-
-            remainingMonths: 0
+            contractStatus: status,
+            remainingMonths
         };
     });
 }

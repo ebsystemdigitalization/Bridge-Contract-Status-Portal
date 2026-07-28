@@ -117,7 +117,7 @@ export const portalApi = {
       totalRows: number;
       totalUnique: number;
       duplicatesMerged: number;
-    }>('/api/contracts/import', {
+    }>('/api/contracts/import-excel', {
       method: 'POST',
       authToken,
       body: JSON.stringify({ contracts, sourceFileName })
