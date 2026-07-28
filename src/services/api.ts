@@ -125,12 +125,14 @@ export const portalApi = {
   },
 
   uploadExcel(
-    authToken: string | null,
-    file: File
+    authToken: string |null,
+    file: File,
+    password: string
   ) {
-    const formData = new FormData();
 
+    const formData = new FormData();
     formData.append('file', file);
+    formData.append('password', password);
 
     return apiRequest<{
       totalRows: number;

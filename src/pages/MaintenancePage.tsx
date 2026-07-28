@@ -28,6 +28,7 @@ export const MaintenancePage = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ current: number, total: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [excelPassword, setExcelPassword] = useState('');
   
   // Performance Monitoring
   const [sessionReads, setSessionReads] = useState(0);
@@ -42,7 +43,8 @@ export const MaintenancePage = () => {
               : null;
           const response = await portalApi.uploadExcel(
               authToken,
-              file
+              file,
+              excelPassword
           );
           setMessage({
               type:'success',
@@ -192,6 +194,23 @@ export const MaintenancePage = () => {
                     </div>
                   ))}
                 </div>
+                <div className="bg-slate-50 p-8 rounded-3xl border-2 border-slate-100">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+                      Excel Password
+                  </h3>
+
+                  <input
+                      type="password"
+                      value={excelPassword}
+                      onChange={(e) => setExcelPassword(e.target.value)}
+                      placeholder="Enter Excel password (leave blank if none)"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3 font-medium focus:border-cd-blue focus:outline-none"
+                  />
+
+                  <p className="mt-3 text-xs text-slate-500">
+                      Required only for password-protected Excel files.
+                  </p>
+              </div>
               </div>
             </div>
 

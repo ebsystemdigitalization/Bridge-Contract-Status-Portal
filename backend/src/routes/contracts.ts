@@ -97,9 +97,10 @@ contractsRouter.post( '/import', requireAuth, requireAdmin, importLimiter, uploa
           error: 'Excel file is required.'
       });
   }
+  const password = String(req.body.password || '');
   let contracts;
   try {
-      contracts = parseExcelBuffer(req.file.buffer);
+      contracts = parseExcelBuffer( req.file.buffer, password );
   }
   catch(error) {
       return res.status(400).json({

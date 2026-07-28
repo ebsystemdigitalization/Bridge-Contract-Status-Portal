@@ -69,9 +69,10 @@ function calculateContractStatus(contractEndDate: string) {
     }
 }
 
-export function parseExcelBuffer(buffer: Buffer) {
+export function parseExcelBuffer( buffer: Buffer, password?: string ) {
     const workbook = XLSX.read(buffer, {
-        type: 'buffer'
+        type: 'buffer',
+        password
     });
 
     const sheetName = workbook.SheetNames[0];
