@@ -49,10 +49,13 @@ export const MaintenancePage = () => {
               text:`Imported ${response.totalUnique} contracts successfully.`
           });
       }catch(error){
-          console.error(error);
+          console.error("UPLOAD ERROR:", error);
+
           setMessage({
               type:'error',
-              text:'Upload failed.'
+              text: error instanceof Error 
+                  ? error.message 
+                  : 'Upload failed.'
           });
       }
       finally{

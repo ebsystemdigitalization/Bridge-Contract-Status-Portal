@@ -9,7 +9,13 @@ type RequestOptions = RequestInit & {
 
 async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set('Content-Type', headers.get('Content-Type') || 'application/json');
+
+  if (!(options.body instanceof FormData)) {
+    headers.set(
+      'Content-Type',
+      headers.get('Content-Type') || 'application/json'
+    );
+  }
 
   if (options.authToken) {
     headers.set('Authorization', `Bearer ${options.authToken}`);
@@ -115,6 +121,25 @@ export const portalApi = {
       method: 'POST',
       authToken,
       body: JSON.stringify({ contracts, sourceFileName })
+    });
+  },
+
+  uploadExcel(
+    authToken: string | null,
+    file: File
+  ) {
+    const formData = new FormData();
+
+    formData.append('file', file);
+
+    return apiRequest<{
+      totalRows: number;
+      totalUnique: number;
+      duplicatesMerged: number;
+    }>('/api/contracts/import', {
+      method: 'POST',
+      authToken,
+      body: formData
     });
   },
 
