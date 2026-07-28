@@ -35,6 +35,16 @@ export const MaintenancePage = () => {
   const trackRead = (count: number) => setSessionReads(prev => prev + count);
 
   const processFile = async(file:File)=>{
+      if (
+        (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) 
+        && !excelPassword
+      ) {
+        setMessage({
+          type:'error',
+          text:'Please enter Excel password before uploading.'
+        });
+        return;
+      }
       setUploading(true);
       setMessage(null);
       try{
