@@ -45,7 +45,7 @@ export function buildContractDocId(contract: any) {
 
 const importLimiter = createRateLimiter({ windowMs: 60_000, maxRequests: 10 });
 const purgeLimiter = createRateLimiter({ windowMs: 60_000, maxRequests: 3 });
-
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 export const contractsRouter = Router();
 
 contractsRouter.post('/search', requireAuth, async (req, res) => {
@@ -88,13 +88,29 @@ contractsRouter.post('/search', requireAuth, async (req, res) => {
   return res.json({ results, queryCount: 1, readCount: snapshot.size });
 });
 
-contractsRouter.post('/import', requireAuth, requireAdmin, importLimiter, async (req, res) => {
+contractsRouter.post( '/import', requireAuth, requireAdmin, importLimiter, upload.single('file'), async (req, res) => {
   if (!isFirestoreAvailable() || !firestore) {
     return res.status(503).json({ error: 'Firestore is not available.' });
   }
-  const contracts = Array.isArray(req.body?.contracts) ? req.body.contracts : [];
+  if (!req.file) {
+      return res.status(400).json({
+          error: 'Excel file is required.'
+      });
+  }
+  let contracts;
+  try {
+      contracts = parseExcelBuffer(req.file.buffer);
+  }
+  catch(error) {
+      return res.status(400).json({
+          error: 'Unable to read Excel file.',
+          details: error instanceof Error ? error.message : String(error)
+      });
+  }
   if (!contracts.length) {
-    return res.status(400).json({ error: 'contracts array is required.' });
+      return res.status(400).json({
+          error: 'Excel file contains no records.'
+      });
   }
   if (contracts.length > 100000) {
     return res.status(413).json({ error: 'Import payload is too large.' });
