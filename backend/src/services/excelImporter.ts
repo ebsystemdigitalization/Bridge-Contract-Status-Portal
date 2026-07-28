@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import XlsxPopulate from 'xlsx-populate';
 
 function parseExcelDate(value: unknown): string {
     if (!value || value === 'N/A') {
@@ -69,10 +70,29 @@ function calculateContractStatus(contractEndDate: string) {
     }
 }
 
-export function parseExcelBuffer( buffer: Buffer, password?: string ) {
-    const workbook = XLSX.read(buffer, {
-        type: 'buffer',
-        password
+export async function parseExcelBuffer(
+    buffer: Buffer,
+    password?: string
+) {
+
+    let excelBuffer = buffer;
+
+    if (password) {
+        try {
+            const unlockedWorkbook = await XlsxPopulate.fromDataAsync(
+                buffer,
+                password
+            );
+
+            excelBuffer = await unlockedWorkbook.outputAsync();
+
+        } catch (error) {
+            throw new Error('Invalid Excel password.');
+        }
+    }
+
+    const workbook = XLSX.read(excelBuffer, {
+        type: 'buffer'
     });
 
     const sheetName = workbook.SheetNames[0];
