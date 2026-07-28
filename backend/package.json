@@ -16,7 +16,9 @@
     "firebase-admin": "^13.9.0",
     "helmet": "^8.0.0",
     "jose": "^5.9.6",
-    "morgan": "^1.10.0"
+    "morgan": "^1.10.0",
+    "multer": "^2.2.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

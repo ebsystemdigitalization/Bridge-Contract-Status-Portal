@@ -137,11 +137,9 @@ service cloud.firestore {
     }
 
     match /contracts/{contractId} {
-      // MANDATORY: Deny any list query that doesn't have a limit or exceeds 100 for normal users.
-      // This prevents collection scans of 50,000+ entries.
-      // Admins are allowed to perform larger queries for maintenance.
-      allow list: if isActive() && (isAdmin() || request.query.limit <= 100);
-      allow get: if isActive();
+      // Backend only
+      allow read: if false;
+      // Only admin operations through Firebase SDK
       allow create, update: if isAdmin() && isValidContract(incoming());
       allow delete: if isAdmin();
     }

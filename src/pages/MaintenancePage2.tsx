@@ -9,7 +9,11 @@ import {
   Trash2,
   Trash
 } from 'lucide-react';
+import { calculateContractStatus } from '../utils/contractUtils';
+import * as XLSX from 'xlsx';
+import { isValid } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
+import { ContractData } from '../types';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 import { portalApi } from '../services/api';
@@ -28,36 +32,142 @@ export const MaintenancePage = () => {
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<{ current: number, total: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  
+
   // Performance Monitoring
   const [sessionReads, setSessionReads] = useState(0);
   const trackRead = (count: number) => setSessionReads(prev => prev + count);
 
-  const processFile = async(file:File)=>{
-      setUploading(true);
-      setMessage(null);
-      try{
-          const authToken = currentUser?.getIdToken
-              ? await currentUser.getIdToken()
-              : null;
-          const response = await portalApi.uploadExcel(
-              authToken,
-              file
-          );
-          setMessage({
-              type:'success',
-              text:`Imported ${response.totalUnique} contracts successfully.`
-          });
-      }catch(error){
-          console.error(error);
-          setMessage({
-              type:'error',
-              text:'Upload failed.'
-          });
+  const parseExcelDate = (dateVal: any): string => {
+    if (!dateVal || dateVal === 'N/A' || dateVal === 'N/A ') return 'N/A';
+    try {
+      let date: Date;
+      if (!isNaN(Number(dateVal)) && Number(dateVal) > 10000) {
+        const excelEpoch = new Date(1899, 11, 30);
+        date = new Date(excelEpoch.getTime() + Number(dateVal) * 86400000);
+      } else {
+        const parts = String(dateVal).split(/[/.-]/);
+        if (parts.length === 3) {
+          const d = parseInt(parts[0]);
+          const m = parseInt(parts[1]) - 1;
+          const y = parts[2].length === 2 ? 2000 + parseInt(parts[2]) : parseInt(parts[2]);
+          date = new Date(y, m, d);
+        } else {
+          date = new Date(dateVal);
+        }
       }
-      finally{
+
+      if (isValid(date)) {
+        const d = date.getDate();
+        const m = date.getMonth() + 1;
+        const y = date.getFullYear();
+        return `${d}/${m}/${y}`;
+      }
+      return String(dateVal).trim();
+    } catch {
+      return String(dateVal).trim();
+    }
+  };
+
+  const processFile = async (file: File) => {
+    setUploading(true);
+    setMessage(null);
+    setUploadProgress(null);
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'array' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const rawData = XLSX.utils.sheet_to_json(ws) as any[];
+
+        if (rawData.length === 0) {
+          setMessage({ type: 'error', text: 'File is empty or invalid.' });
           setUploading(false);
+          return;
+        }
+
+        setUploadProgress({ current: 0, total: rawData.length });
+        
+        let totalRowsRead = rawData.length;
+        
+        // Use a Map to deduplicate locally before uploading for maximum efficiency
+        const contractMap = new Map<string, ContractData>();
+        
+        for (const row of rawData) {
+          let billingAcc = String(row['BILLING_ACCOUNT_NUMBER'] || row['BILLING ACCOUNT NUMBER'] || row['BILLING_ACC'] || row['ACCOUNT_NO'] || '').trim();
+          let msisdn = String(row['MSISDN'] || row['MOBILE_NUMBER'] || row['MOBILE NUMBER'] || row['PHONE_NUMBER'] || '').trim();
+          
+          if (!billingAcc || billingAcc === 'undefined' || billingAcc.toLowerCase() === 'null') billingAcc = 'N/A';
+          if (!msisdn || msisdn === 'undefined' || msisdn.toLowerCase() === 'null') msisdn = 'N/A';
+
+          const productName = String(row['PRODUCT_NAME'] || row['PRODUCT NAME'] || row['PRODUCT'] || 'N/A').trim();
+          const contractName = String(row['CONTRACT_NAME'] || row['CONTRACT NAME'] || 'N/A').trim();
+          const planName = String(row['PLAN_NAME'] || row['PLAN NAME'] || row['PLAN'] || row['SUBSCRIPTION_PLAN'] || row['SUBSCRIPTION PLAN'] || 'N/A').trim();
+          const rawStartDate = row['CONTRACT_START_DATE'] || row['CONTRACT START DATE'] || row['START_DATE'] || 'N/A';
+          const rawEndDate = row['CONTRACT_END_DATE'] || row['CONTRACT END DATE'] || row['END_DATE'] || 'N/A';
+          const duration = row['CONTRACT_DURATION_IN_MONTHS'] || row['CONTRACT_DURATION'] || row['CONTRACT DURATION'] || row['TENURE'] || 0;
+          const penalty = row['CONTRACT_PENALTY_AMOUNT'] || row['CONTRACT_PENALTY'] || row['CONTRACT PENALTY'] || row['PENALTY'] || 0;
+          const segment = String(row['SEGMENT'] || row['Segment'] || row['segment'] || 'N/A').trim();
+
+          const startDate = parseExcelDate(rawStartDate);
+          const endDate = parseExcelDate(rawEndDate);
+          
+          const { status, remainingMonths } = calculateContractStatus(endDate);
+          
+          const contract: ContractData = {
+            billingAccountNumber: billingAcc,
+            msisdn: msisdn,
+            planName: planName,
+            productName: productName,
+            contractName: contractName,
+            contractStartDate: startDate,
+            contractEndDate: endDate,
+            contractDuration: duration === 'N/A' ? 0 : Number(duration || 0),
+            contractPenaltyAmount: penalty === 'N/A' ? 0 : Number(penalty || 0),
+            contractStatus: status as 'ACTIVE' | 'EXPIRED',
+            remainingMonths: remainingMonths,
+            segment: segment
+          };
+
+          // Deterministic ID implementation - includes all requested fields to preserve distinct records
+          const docId = `${msisdn}_${billingAcc}_${productName}_${contractName}_${startDate}_${endDate}_${duration}_${penalty}_${segment}`.replace(/[^a-zA-Z0-9]/g, '_');
+          contractMap.set(docId, contract);
+        }
+
+        const distinctContracts = Array.from(contractMap.entries());
+        const totalUnique = distinctContracts.length;
+        const duplicatesMerged = totalRowsRead - totalUnique;
+
+        setUploadProgress({ current: 0, total: totalUnique });
+
+        const authToken = currentUser?.getIdToken ? await currentUser.getIdToken() : null;
+        await portalApi.uploadContracts(
+          authToken,
+          distinctContracts.map(([, contract]) => contract),
+          file.name
+        );
+        setUploadProgress({ current: totalUnique, total: totalUnique });
+        
+        let feedbackText = `Import complete. Successfully synced ${totalUnique} unique records.`;
+        if (duplicatesMerged > 0) {
+          feedbackText += ` (Note: ${duplicatesMerged} duplicate rows in your file were merged into unique records)`;
+        }
+
+        setMessage({ 
+          type: 'success', 
+          text: feedbackText
+        });
+      } catch (error) {
+        console.error("Upload error:", error);
+        setMessage({ type: 'error', text: 'Failed to process file. Ensure it is a valid Excel or CSV file.' });
+      } finally {
+        setUploading(false);
+        setUploadProgress(null);
       }
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const purgeAllContracts = async () => {
@@ -227,7 +337,9 @@ export const MaintenancePage = () => {
                       <Loader2 className="w-12 h-12 text-cd-blue animate-spin relative" />
                     </div>
                     <span className="text-sm font-black text-cd-blue uppercase tracking-[0.3em]">
-                      Processing Upload
+                      {uploadProgress 
+                        ? `Syncing: ${Math.round((uploadProgress.current / uploadProgress.total) * 100)}%` 
+                        : 'Processing Batch'}
                     </span>
                   </div>
                 </div>
