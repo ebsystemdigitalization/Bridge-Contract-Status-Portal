@@ -70,20 +70,13 @@ authRouter.post('/resolve-login', async (req, res) => {
 authRouter.post('/adb2c/callback', async (req, res) => {
   const {
     code,
-    codeVerifier
+    codeVerifier,
+    redirectUri
   } = req.body;
 
-  const redirectUri = config.adb2cRedirectUri;
-
-  if (!code || !codeVerifier) {
+  if (!code || !codeVerifier || !redirectUri) {
     return res.status(400).json({
-      error: 'code and codeVerifier are required.'
-    });
-  }
-
-  if (!redirectUri) {
-    return res.status(500).json({
-      error: 'ADB2C redirect URI is not configured.'
+      error: 'code, codeVerifier and redirectUri are required.'
     });
   }
 
