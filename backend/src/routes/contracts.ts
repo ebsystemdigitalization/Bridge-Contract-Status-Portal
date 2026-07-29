@@ -130,7 +130,7 @@ contractsRouter.post( '/import', requireAuth, requireAdmin, importLimiter, uploa
           error: 'Excel file contains no records.'
       });
   }
-  if (contracts.length > 100000) {
+  if (contracts.length > 300000) {
     return res.status(413).json({ error: 'Import payload is too large.' });
   }
   if (contracts.some((item: any) => !item || typeof item !== 'object' || Array.isArray(item))) {
