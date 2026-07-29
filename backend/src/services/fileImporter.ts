@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import XlsxPopulate from 'xlsx-populate';
+import * as officeCrypto from 'officecrypto-tool';
 
 function parseExcelDate(value: unknown): string {
     if (!value || value === 'N/A') {
@@ -74,20 +74,26 @@ export async function parseExcelBuffer(
     buffer: Buffer,
     password?: string
 ) {
-
     let excelBuffer = buffer;
-
     if (password) {
         try {
-            const unlockedWorkbook = await XlsxPopulate.fromDataAsync(
-                buffer,
-                password
+            const encrypted =
+                officeCrypto.isEncrypted(buffer);
+            if (encrypted) {
+                excelBuffer = await officeCrypto.decrypt( buffer, { password } );
+            } else {
+                console.log(
+                    "Excel file is not encrypted. Password ignored."
+                );
+            }
+        } catch(error) {
+            console.error(
+                "Excel decrypt error:",
+                error
             );
-
-            excelBuffer = await unlockedWorkbook.outputAsync();
-
-        } catch (error) {
-            throw new Error('Invalid Excel password.');
+            throw new Error(
+                'Invalid Excel password.'
+            );
         }
     }
 

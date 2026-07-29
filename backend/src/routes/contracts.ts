@@ -4,7 +4,7 @@ import { requireAdmin, requireAuth, requireSuperAdmin } from '../middleware/auth
 import { createRateLimiter } from '../middleware/rateLimit.js';
 import { serializeDoc } from '../utils/firestore.js';
 import multer from 'multer';
-import { parseExcelBuffer } from '../services/excelImporter.js';
+import { parseExcelBuffer } from '../services/fileImporter.js';
 
 export function validateContractPayload(contract: any) {
   if (!contract || typeof contract !== 'object' || Array.isArray(contract)) {
@@ -94,15 +94,32 @@ contractsRouter.post( '/import', requireAuth, requireAdmin, importLimiter, uploa
   }
   if (!req.file) {
       return res.status(400).json({
-          error: 'Excel file is required.'
+          error: 'Upload file is required.'
       });
   }
-  const password = String(req.body.password || '');
+
+  const allowedExtensions = [ '.xlsx', '.xls', '.csv', '.zip' ];
+  const filename = req.file.originalname.toLowerCase();
+
+  if (!allowedExtensions.some(ext => filename.endsWith(ext))) {
+      return res.status(400).json({
+          error: 'Unsupported file type. Allowed: XLSX, XLS, CSV, ZIP.'
+      });
+  }  
+
+  const password = req.body.password 
+      ? String(req.body.password)
+      : undefined;
+
+  console.log("File:", req.file.originalname);
+  console.log("Password provided:", !!password);
+
   let contracts;
   try {
       contracts = await parseExcelBuffer( req.file.buffer, password );
   }
   catch(error) {
+      console.error("IMPORT ERROR:", error);
       return res.status(400).json({
           error: 'Unable to read Excel file.',
           details: error instanceof Error ? error.message : String(error)
