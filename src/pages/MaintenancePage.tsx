@@ -44,7 +44,7 @@ export const MaintenancePage = () => {
           const response = await portalApi.uploadExcel(
               authToken,
               file,
-              excelPassword
+              excelPassword || undefined
           );
           setMessage({
               type:'success',

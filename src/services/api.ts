@@ -30,7 +30,7 @@ async function apiRequest<T>(path: string, options: RequestOptions = {}): Promis
     let message = `API request failed with status ${response.status}`;
     try {
       const body = await response.json();
-      message = body.error || body.message || message;
+      message = body.details || body.error || body.message || message;
     } catch {
       // Keep the generic status message when the backend does not return JSON.
     }
@@ -125,14 +125,14 @@ export const portalApi = {
   },
 
   uploadExcel(
-    authToken: string |null,
-    file: File,
-    password: string
+      authToken: string | null,
+      file: File,
+      password?: string
   ) {
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('password', password);
+    if (password) { formData.append('password', password); }
 
     return apiRequest<{
       totalRows: number;
