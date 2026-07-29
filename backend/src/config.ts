@@ -20,6 +20,7 @@ export const config = {
   adb2cPolicy: readEnv('ADB2C_POLICY') || 'B2C_1_sign_in_with_id',
   adb2cClientId: readEnv('ADB2C_CLIENT_ID') || '',
   adb2cClientSecret: readEnv('ADB2C_CLIENT_SECRET') || '',
+  adb2cRedirectUri: readEnv('ADB2C_REDIRECT_URI') || '',
 
   authProvider: readEnv('AUTH_PROVIDER') || 'hybrid',
 

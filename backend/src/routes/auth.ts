@@ -74,6 +74,18 @@ authRouter.post('/adb2c/callback', async (req, res) => {
     redirectUri
   } = req.body;
 
+  if (!config.adb2cRedirectUri) {
+    return res.status(500).json({
+      error: 'ADB2C redirect URI is not configured.'
+    });
+  }
+
+  if (redirectUri !== config.adb2cRedirectUri) {
+    return res.status(400).json({
+      error: 'Invalid redirect URI.'
+    });
+  }
+
   if (!code || !codeVerifier || !redirectUri) {
     return res.status(400).json({
       error: 'code, codeVerifier and redirectUri are required.'
