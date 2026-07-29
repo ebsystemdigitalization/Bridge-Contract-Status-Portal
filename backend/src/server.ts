@@ -22,7 +22,7 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json({ limit: '25mb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 
@@ -40,7 +40,9 @@ app.use('/api/admin', adminRouter);
 
 app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled API error:', error);
-  res.status(error.status || 500).json({ error: error.message || 'Internal server error.' });
+  res.status(error.status || 500).json({
+    error: 'Internal server error.'
+  });
 });
 
 app.use((_req, res) => {
