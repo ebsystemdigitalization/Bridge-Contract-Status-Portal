@@ -50,18 +50,16 @@ authRouter.post('/resolve-login', async (req, res) => {
     .limit(1)
     .get();
 
-  let email = `${username}@celcomdigi.com`;
-
-  if (!snapshot.empty) {
-    const user = snapshot.docs[0].data() as any;
-
-    if (user.email) {
-      email = user.email;
-    }
+  if (snapshot.empty) {
+    return res.json({
+      email: null
+    });
   }
 
+  const user = snapshot.docs[0].data() as any;
+
   return res.json({
-    email
+    email: user.email || null
   });
 });
 

@@ -334,9 +334,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!email.includes('@')) {
       try {
         const response = await portalApi.resolveLoginEmail(email);
-        email = response.email || `${email}@celcomdigi.com`;
+        if (!response.email) {
+          throw new Error("Invalid username or password.");
+        }
+        email = response.email;
       } catch (e) {
-        email = `${email}@celcomdigi.com`;
+        throw new Error("Invalid username or password.");
       }
     }
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
