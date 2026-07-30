@@ -10,7 +10,8 @@ import { portalApi } from '../services/api';
 /**
  * Search page component for verifying customer contract records.
  * Supports searching by MSISDN or Billing Account Number.
- * Maintains a local history of recent searches.
+ * Maintains a session-based history of recent searches.
+ * Data is cleared when the browser session ends.
  */
 export const SearchPage = () => {
   const { user, profile } = useAuth();
