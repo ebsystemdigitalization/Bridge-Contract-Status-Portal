@@ -155,7 +155,7 @@ adminRouter.get('/search-logs', async (req, res) => {
   if (!isFirestoreAvailable() || !firestore) {
     return res.status(503).json({ error: 'Firestore is not available.' });
   }
-  const limitCount = req.query.all === 'true' ? 5000 : 50;
+  const limitCount = req.query.all === 'true' ? 50000 : 50;
   const snapshot = await firestore.collection('search_logs').orderBy('timestamp', 'desc').limit(limitCount).get();
   return res.json({ logs: snapshot.docs.map(serializeDoc), readCount: snapshot.size });
 });
