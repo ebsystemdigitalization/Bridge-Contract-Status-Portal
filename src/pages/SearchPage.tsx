@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Loader2, ChevronRight, LayoutDashboard, User as UserIcon, AlertCircle, Clock, Download } from 'lucide-react';
+import { Search, Loader2, ChevronRight, LayoutDashboard, User as UserIcon, AlertCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ContractData } from '../types';
 import { ContractStatusBadge } from '../components/ContractStatusBadge';
@@ -70,58 +70,6 @@ export const SearchPage = () => {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     performSearch(searchTerm, searchBy);
-  };
-
-  const exportToCSV = () => {
-    if (results.length === 0) return;
-
-    const headers = [
-      'Billing Account Number',
-      'MSISDN',
-      'Product Name',
-      'Contract Name',
-      'Contract Start Date',
-      'Contract End Date',
-      'Contract Duration',
-      'Penalty Amount (RM)',
-      'Segment',
-      'Status',
-      'Remaining Months'
-    ];
-
-    const csvRows = results.map(contract => {
-      const { remainingMonths, status } = calculateContractStatus(contract.contractEndDate);
-      const displayStatus = status === 'EXPIRED' ? 'NO CONTRACT' : status;
-      return [
-        `"${contract.billingAccountNumber}"`,
-        `"${contract.msisdn}"`,
-        `"${contract.productName || 'N/A'}"`,
-        `"${contract.contractName || 'N/A'}"`,
-        `"${contract.contractStartDate || '-'}"`,
-        `"${contract.contractEndDate || '-'}"`,
-        `"${contract.contractDuration}"`,
-        `"${contract.contractPenaltyAmount || 0}"`,
-        `"${contract.segment || 'N/A'}"`,
-        `"${displayStatus}"`,
-        `"${remainingMonths}"`
-      ].join(',');
-    });
-
-    const csvContent = [headers.join(','), ...csvRows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    
-    // Formatting date for proper naming
-    const timestamp = new Date().toISOString().split('T')[0];
-    const fileName = `CD_Contract_Audit_${searchTerm.trim()}_${timestamp}.csv`;
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', fileName);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   return (
@@ -267,13 +215,6 @@ export const SearchPage = () => {
                     {results.length} Matches Found
                   </span>
                 </div>
-                <button
-                  onClick={exportToCSV}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-slate-100 hover:border-cd-blue hover:text-cd-blue text-slate-600 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-sm active:scale-[0.98]"
-                >
-                  <Download className="w-4 h-4" />
-                  Export CSV
-                </button>
               </div>
               
               <div className="bg-white rounded-4xl shadow-2xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
