@@ -12,4 +12,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
 COPY --from=build /app/dist ./dist
+
+# Create non-root application user
+RUN useradd --create-home appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+
 CMD ["npm", "start"]
