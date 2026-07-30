@@ -171,7 +171,7 @@ export const AdminPanel = () => {
           clean(doc.email),
           clean(doc.userId),
           clean(doc.searchBy),
-          clean(doc.searchTerm),
+          clean(`="${doc.searchTerm}"`),
           clean(doc.resultsCount)
         ];
       });
