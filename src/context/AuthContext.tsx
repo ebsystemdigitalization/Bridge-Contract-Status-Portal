@@ -138,8 +138,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const challenge = base64urlencode(await sha256(verifier));
       const state = generateRandomString(32);
       
-      localStorage.setItem('_sys_v1', verifier);
-      localStorage.setItem('_sys_state', state);
+      sessionStorage.setItem('_sys_v1', verifier);
+      sessionStorage.setItem('_sys_state', state);
       
       const clientId = requiredEnv('VITE_ADB2C_CLIENT_ID');
       const tenantId = requiredEnv('VITE_ADB2C_TENANT_ID');
@@ -190,10 +190,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
 
-      const verifier = localStorage.getItem('_sys_v1');
+      const verifier = sessionStorage.getItem('_sys_v1');
 
       const storedState = normalizeState(
-        localStorage.getItem('_sys_state')
+        sessionStorage.getItem('_sys_state')
       );
 
       const receivedState = normalizeState(state);
@@ -230,8 +230,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       );
 
 
-      localStorage.removeItem('_sys_v1');
-      localStorage.removeItem('_sys_state');
+      sessionStorage.removeItem('_sys_v1');
+      sessionStorage.removeItem('_sys_state');
 
 
     } catch(error) {
@@ -356,8 +356,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await signOut(auth);
 
       // Clear PKCE/session artifacts
-      localStorage.removeItem('_sys_v1');
-      localStorage.removeItem('_sys_state');
+      sessionStorage.removeItem('_sys_v1');
+      sessionStorage.removeItem('_sys_state');
 
       // ADB2C logout
       const tenantId = requiredEnv('VITE_ADB2C_TENANT_ID');

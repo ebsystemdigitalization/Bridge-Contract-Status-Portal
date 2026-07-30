@@ -28,15 +28,19 @@ export const SearchPage = () => {
 
   useEffect(() => {
     if (!user) return;
-    const saved = localStorage.getItem(`_sc_h_${user.uid.substring(0, 8)}`);
-    if (saved) setRecentSearches(JSON.parse(saved));
+    const saved = sessionStorage.getItem(
+      `_sc_h_${user.uid.substring(0, 8)}`
+    );
+    if (saved) {
+      setRecentSearches(JSON.parse(saved));
+    }
   }, [user]);
 
   const saveRecentSearch = (term: string) => {
     if (!user) return;
-    const updated = [term, ...recentSearches.filter(s => s !== term)].slice(0, 3);
+    const updated = [ term, ...recentSearches.filter(s => s !== term) ].slice(0, 3);
     setRecentSearches(updated);
-    localStorage.setItem(`_sc_h_${user.uid.substring(0, 8)}`, JSON.stringify(updated));
+    sessionStorage.setItem( `_sc_h_${user.uid.substring(0, 8)}`, JSON.stringify(updated) );
   };
 
   const performSearch = async (term: string, mode: typeof searchBy) => {
