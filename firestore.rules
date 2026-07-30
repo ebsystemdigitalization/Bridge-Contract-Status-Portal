@@ -12,10 +12,9 @@ service cloud.firestore {
     }
 
     function isVerified() {
-      // Relaxed for admins, verified emails, owners, and ADB2C shadow accounts
+      // Relaxed for admins, verified emails, and ADB2C shadow accounts
       return isSignedIn() && (
         request.auth.token.get('email_verified', false) == true || 
-        isOwner() ||
         isADB2CShadow() ||
         getUserData(request.auth.uid).get('role', 'user') == 'admin' ||
         getUserData(request.auth.uid).get('role', 'user') == 'superadmin'
@@ -33,7 +32,6 @@ service cloud.firestore {
 
     function isSuperAdmin() {
       return isSignedIn() && (
-        isOwner() ||
         getUserData(request.auth.uid).get('role', 'user') == 'superadmin'
       );
     }
@@ -46,7 +44,6 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        isOwner() ||
         getUserData(request.auth.uid).get('role', 'user') == 'admin' ||
         getUserData(request.auth.uid).get('role', 'user') == 'superadmin'
       );
@@ -54,7 +51,6 @@ service cloud.firestore {
 
     function isActive() {
       return isSignedIn() && (
-        isOwner() ||
         getUserData(request.auth.uid).get('status', 'Pending') == 'Active' ||
         isADB2CShadow()
       );
@@ -119,7 +115,7 @@ service cloud.firestore {
                     ) &&
                     incoming().keys().hasAll(['username', 'role', 'status', 'uid', 'createdAt', 'lastLoginAt']);
       
-      // Update logic: Self (limited fields) or Admin/SuperAdmin
+      // Update logic: Self (limited fields, cannot modify status) or Admin/SuperAdmin
       allow update: if isSignedIn() && (
         (request.auth.uid == userId && 
          incoming().diff(existing()).affectedKeys().hasOnly(['username', 'email', 'lastLoginAt', 'adb2cEmail']) &&
@@ -137,11 +133,9 @@ service cloud.firestore {
     }
 
     match /contracts/{contractId} {
-      // Backend only
-      allow read: if false;
-      // Only admin operations through Firebase SDK
-      allow create, update: if isAdmin() && isValidContract(incoming());
-      allow delete: if isAdmin();
+      // Backend Admin SDK only
+      // No browser/client access allowed
+      allow read, write: if false;
     }
 
     match /audit_logs/{logId} {

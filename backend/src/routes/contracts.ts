@@ -45,10 +45,11 @@ export function buildContractDocId(contract: any) {
 
 const importLimiter = createRateLimiter({ windowMs: 60_000, maxRequests: 10 });
 const purgeLimiter = createRateLimiter({ windowMs: 60_000, maxRequests: 3 });
+const searchLimiter = createRateLimiter({ windowMs: 60_000, maxRequests: 30 });
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 export const contractsRouter = Router();
 
-contractsRouter.post('/search', requireAuth, async (req, res) => {
+contractsRouter.post( '/search', requireAuth, searchLimiter, async (req, res) => {
   if (!isFirestoreAvailable() || !firestore) {
     return res.status(503).json({ error: 'Firestore is not available.' });
   }
