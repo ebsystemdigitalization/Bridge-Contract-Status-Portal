@@ -2,129 +2,181 @@
 
 ## Overview
 
-Bridge Contract Status Portal is an enterprise-grade internal application designed for telecommunications staff to verify customer contract statuses. It features a hybrid identity architecture that bridges enterprise SSO (Azure AD B2C) with a high-security serverless backend (Firebase).
+Bridge Contract Status Portal is an enterprise-grade internal application for telecommunications staff to verify customer contract records. The current implementation uses a split architecture with a React/Vite frontend, an Express/TypeScript backend API, and Firebase Firestore for storage.
 
-## System Architecture
+## Current Architecture
 
-The portal employs a "Bridge Identity" pattern. Internal staff authenticate via Azure AD B2C, and the application transparently maintains a "Shadow" Firebase account to leverage Firestore's robust Security Rules for role-based access.
+The portal now follows a backend-driven model:
+
+- The frontend is a React + Vite application that renders the portal experience and calls the backend through the API client in [src/services/api.ts](src/services/api.ts).
+- The backend in [backend/src/server.ts](backend/src/server.ts) exposes authenticated routes for auth, profile management, contract search,Excel import, purge operations, and admin workflows.
+- Azure AD B2C handles enterprise login, while the backend exchanges the authorization code for a Firebase custom token and creates or updates the user profile in Firestore.
+- Firebase Authentication and Firestore remain the runtime data and identity foundation, but direct browser-to-Firestore access is no longer the primary design.
 
 ```mermaid
 graph TD
     User((Internal Staff))
     Admin((Platform Admin))
 
-    subgraph "External Identity"
+    subgraph "Frontend"
+        UI[React + Vite UI]
+        AuthC[Auth Context]
+        PortalAPI[portalApi client]
+    end
+
+    subgraph "Backend"
+        API[Express API]
+        AuthMW[Auth Middleware]
+        Routes[Contracts / Admin / Me / Auth Routes]
+    end
+
+    subgraph "Identity & Data"
         ADB2C[Azure AD B2C]
-    end
-
-    subgraph "Frontend (React + Vite)"
-        UI[User Interface]
-        AuthC[Auth Context / Shadow Bridge]
-        AuditEngine[Audit Engine]
-    end
-
-    subgraph "Backend (Firebase)"
         FA[Firebase Auth]
-        FS[(Cloud Firestore)]
+        FS[(Firestore)]
     end
 
     User --> UI
-    UI -- "1. SSO Auth" --> ADB2C
-    ADB2C -- "2. Token" --> AuthC
-    AuthC -- "3. Shadow Sync" --> FA
-    AuthC <--> FS
-    
-    Admin -- "Native Auth" --> UI
-    UI --> AuditEngine
-    AuditEngine --> FS
+    Admin --> UI
+    UI --> PortalAPI
+    PortalAPI --> API
+    API --> AuthMW
+    AuthMW --> ADB2C
+    AuthMW --> FA
+    API --> Routes
+    Routes --> FS
+    AuthC --> PortalAPI
 ```
 
 ## Project Structure
 
-The application is organized into a modular structure to ensure scalability and maintainability:
+The implementation is now organized around a frontend and backend split:
 
-- **`src/components/`**: Reusable UI components (Navbar, ProtectedRoute, ErrorBoundary, etc.).
-- **`src/pages/`**: Page-level components representing different routes (Login, SearchPage, AdminPanel, DatabaseView).
-- **`src/context/`**: React Context providers for global state management (**AuthContext** handles the ADB2C-to-Firebase bridge).
-- **`src/types/`**: TypeScript interfaces and enums used across the project.
-- **`src/utils/`**: Utility functions for Firestore error handling and data transformation.
-- **`src/lib/`**: External library configurations (Tailwind merging).
-- **`src/App.tsx`**: Clean entry point for routing and global providers.
+- [src/components](src/components): reusable UI views such as the navbar, protected route, contract status badge, and loading states.
+- [src/pages](src/pages): route-level screens including SearchPage and AdminPanel.
+- [src/context/AuthContext.tsx](src/context/AuthContext.tsx): handles ADB2C initiation, callback handling, session timeout, and profile synchronization.
+- [src/services/api.ts](src/services/api.ts): centralized frontend API client for backend routes.
+- [backend/src/routes](backend/src/routes): API endpoints for auth, profile, contracts, and admin actions.
+- [backend/src/middleware](backend/src/middleware): authentication and rate-limiting middleware.
+- [backend/src/firebaseAdmin.ts](backend/src/firebaseAdmin.ts): backend-only Firestore and Firebase Admin initialization.
 
-## Key Components
+## Key Design Changes in the Current Build
 
-### 1. Hybrid Authentication (`AuthContext`)
+### 1. Backend-mediated authentication
+- The frontend starts an OAuth 2.0 PKCE flow with Azure AD B2C.
+- The backend receives the authorization code and validates the incoming token with JWKS before issuing a Firebase custom token.
+- The resulting session is bound to a Firestore profile that can carry role and status information.
 
-#### A. Azure AD B2C Integration
-- **Flow**: Implements the OAuth 2.0 Authorization Code Flow with PKCE.
-- **Experience**: The staff login is initiated via a secure popup window. After success, the popup communicates back to the main window using `window.postMessage`, ensuring a seamless user experience without page reloads.
+### 2. Role-aware admin workflows
+- Administrators and superadmins use the same portal UI but are authorized server-side through middleware.
+- The admin routes support user status changes, role changes, deletion of user records, audit log viewing, and search-log export.
+- Sensitive actions are written to audit logs and guarded by backend validation.
 
-#### B. The "Shadow Identity" Pattern
-- **Purpose**: Azure AD B2C provides identity, but Firestore requires Firebase Auth for fine-grained security rule execution.
-- **Mechanism**: Upon successful ADB2C login, the system derives a deterministic "Shadow Email" (e.g., `staff.<oid>.adb2c@celcomdigi.com`).
-- **Sync**: The frontend automatically manages a Firebase Auth session for this shadow identity. This bridges the gap, allowing Staff to use their real credentials while the database stays secured by Firebase-native rules.
+### 3. Contract operations moved to the API layer
+- Search requests, Excel import, purge operations, and audit actions are executed through the backend.
+- The backend validates request payloads, enforces size and rate limits, and writes audit records for privileged operations.
 
-#### C. Privacy & Data Integrity
-- **Administrative Access**: Administrators use standard Firebase Auth. Profiles for non-staff accounts start as `Pending` and require manual approval.
-- **Auto-Activation**: Verified ADB2C staff are automatically granted `Active` status on their first sync, bypassing the manual approval queue.
-- **Profile Redaction**: For CelcomDigi internal accounts, usernames are extracted from email prefixes to preserve privacy in audit logs.
+## Runtime Workflows
 
-### 2. Audit Logs & Search Analytics
-- **Accounting**: Every sensitive administrative action (Role changes, Bulk imports) and every user search query is logged.
-- **Search Logs**: Captures the `userId`, `username`, `searchTerm`, and `timestamp`. This is critical for detecting bulk-scraping attempts and monitoring platform health.
-- **Security**: Logs are append-only. Rules prevent users from modifying or deleting their own logs.
-
-### 3. Search Engine (`SearchPage`)
-- **Query Hardening**: Every search interaction is constrained by a `limit(10)` function at the client level and validated by a `limit <= 100` rule at the database level.
-- **Fibre vs Mobile**: Targeted querying logic ensures that Fibre username searches only hit records with domain-inclusive entries, preventing cross-contamination of search results.
-
-## System Workflows
-
-### Staff SSO Sequence (SSO Bridge)
+### Staff SSO Sequence
 ```mermaid
 sequenceDiagram
-    participant U as Staff
-    participant UI as Frontend
-    participant AD as Azure ADB2C
+    autonumber
+    actor Staff as Internal Staff
+    participant UI as Portal Frontend
+    participant ADB2C as Azure AD B2C
+    participant API as Express API
     participant FA as Firebase Auth
     participant FS as Firestore
 
-    U->>UI: Click Staff Login
-    UI->>AD: Authorize (Popup)
-    AD-->>UI: Auth Code
-    UI->>AD: Exchange Code for Token
-    UI->>UI: Derive Shadow Identity (staff.uuid@adb2c)
-    UI->>FA: Sign In / Create Shadow Account
-    UI->>FS: Sync Profile (Status: Active)
-    UI-->>U: Access Granted
+    Staff->>UI: Open portal and choose staff login
+    UI->>ADB2C: Start PKCE authorization flow
+    ADB2C-->>UI: Return authorization code
+    UI->>API: Send code, verifier, and redirect URI
+    API->>ADB2C: Exchange code for ID token
+    API->>FA: Create or sign in with custom token
+    API->>FS: Create/update user profile and role state
+    API-->>UI: Return authenticated session
+    UI-->>Staff: Grant access to the portal
 ```
 
-## Data Model (Firestore)
+### Search and Admin Flow
+```mermaid
+sequenceDiagram
+    autonumber
+    box rgba(220,240,255,0.6) Staff Persona
+    actor Staff as Normal Staff
+    participant SUI as Staff UI
+    participant SAPI as Express API
+    participant SFS as Firestore
+    end
 
-### `contracts` Collection
+    box rgba(255,238,210,0.8) Admin Persona
+    actor Admin as Platform Admin
+    participant AUI as Admin UI
+    participant AAPI as Express API
+    participant AFS as Firestore
+    end
+
+    Staff->>SUI: Open portal and search contract
+    SUI->>SAPI: POST /api/contracts/search
+    SAPI->>SFS: Query contract records
+    SFS-->>SAPI: Return matching contract data
+    SAPI-->>SUI: Return search results
+    SUI-->>Staff: Display contract status and history
+
+    Admin->>AUI: Open admin console
+    AUI->>AAPI: GET /api/admin/users or /api/admin/audit-logs
+    AAPI->>AFS: Read users, roles, and audit entries
+    AFS-->>AAPI: Return admin data
+    AAPI-->>AUI: Return filtered results
+    AUI-->>Admin: Show approvals, logs, and exports
+```
+
+## Data Model
+
+### contracts
 | Field | Type | Description |
-|-------|------|-------------|
-| `billingAccountNumber` | string | Unique customer billing ID |
-| `msisdn` | string | Mobile number |
-| `contractStatus` | string | "CONTRACT ACTIVE" or "CONTRACT EXPIRED" |
-| `updatedAt` | timestamp | Server-side timestamp |
+|---|---|---|
+| billingAccountNumber | string | Customer billing account identifier |
+| msisdn | string | Mobile number or fibre-style identity value |
+| contractStatus | string | Active or expired contract state |
+| productName | string | Product name |
+| contractName | string | Contract name |
+| contractStartDate | string | Contract start date |
+| contractEndDate | string | Contract end date |
+| contractDuration | string | Human-readable duration |
+| contractPenaltyAmount | number | Penalty amount |
+| segment | string | Segment classification |
+| updatedAt | timestamp | Server-side timestamp |
 
-### `users` Collection
+### users
 | Field | Type | Description |
-|-------|------|-------------|
-| `uid` | string | Primary Key (Auth UID) |
-| `adb2cEmail` | string | The Shadow Email (used for Rule verification) |
-| `status` | string | Pending / Active / Rejected |
-| `role` | string | user / admin / superadmin |
+|---|---|---|
+| uid | string | Firestore document ID and auth UID |
+| username | string | Display name used in the UI |
+| email | string | Primary email |
+| adb2cEmail | string | ADB2C email used for identity mapping |
+| authProvider | string | adb2c or firebase |
+| role | string | user, admin, or superadmin |
+| status | string | Active, Pending, or Rejected |
+| createdAt | timestamp | Registration timestamp |
+| lastLoginAt | timestamp | Latest login timestamp |
 
-## Performance Optimization
+### audit_logs and search_logs
+- These collections capture privileged actions and query activity for monitoring, auditing, and export.
+- Search logs include the user identity, search scope, term, result count, and timestamp.
 
-1. **Deterministic Document IDs**: Contracts use composite IDs (`msisdn_account`). This allows O(1) lookups and efficient delta-updates during Excel imports.
-2. **Throttled Metadata**: User activity tracking only triggers a database write once every 24 hours per session to minimize write units.
-3. **Manual Aggregate Sync**: Global database stats are not auto-loaded. Admins trigger a manual count to save on read units.
+## Security and Operational Controls
 
-## Security Controls
+- The backend validates bearer tokens from Azure AD B2C or Firebase before granting access.
+- Middleware enforces authentication, admin, and superadmin authorization boundaries.
+- Rate limiting and request-size controls protect the import and purge endpoints.
+- The UI includes inactivity warnings and session expiration handling.
+- Export actions and audit events are generated server-side to support traceability.
 
-- **Rule-Level Validation**: Security rules verify the `adb2cEmail` field in the user profile against the authenticated ID token's email.
-- **Time-Locked Tokens**: Sessions are strictly monitored for inactivity with visual countdown warnings.
-- **Identity Redaction**: Real emails are never stored in the `contracts` or `audit_logs` collections.
+## Development Notes
+
+- Frontend development runs from the Vite app in the repository root.
+- Backend development runs from [backend](backend) using the TypeScript entrypoint in [backend/src/server.ts](backend/src/server.ts).
+- The current setup is intended for internal use and assumes the relevant identity, Firebase, and storage configuration is available in the environment.
