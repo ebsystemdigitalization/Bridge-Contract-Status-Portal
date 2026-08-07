@@ -131,6 +131,34 @@ sequenceDiagram
     AFS-->>AAPI: Return admin data
     AAPI-->>AUI: Return filtered results
     AUI-->>Admin: Show approvals, logs, and exports
+
+    Admin->>AUI: Promote user to admin / demote user
+    AUI->>AAPI: PATCH /api/admin/users/role
+    AAPI->>AFS: Update user role
+    AFS-->>AAPI: Confirm role change
+    AAPI-->>AUI: Return updated profile
+    AUI-->>Admin: Show success message
+
+    Admin->>AUI: Remove a user account record
+    AUI->>AAPI: DELETE /api/admin/users/:uid
+    AAPI->>AFS: Delete user document
+    AFS-->>AAPI: Confirm deletion
+    AAPI-->>AUI: Return completion status
+    AUI-->>Admin: Show removal result
+
+    Admin->>AUI: Purge all contract data
+    AUI->>AAPI: DELETE /api/contracts/purge
+    AAPI->>AFS: Delete contract documents in batches
+    AFS-->>AAPI: Return deleted count
+    AAPI-->>AUI: Return purge summary
+    AUI-->>Admin: Show purge result
+
+    Admin->>AUI: Upload bulk contract file
+    AUI->>AAPI: POST /api/contracts/import
+    AAPI->>AFS: Validate, deduplicate, and write contracts
+    AFS-->>AAPI: Return import summary
+    AAPI-->>AUI: Return rows imported and duplicates merged
+    AUI-->>Admin: Show import result
 ```
 
 ## Data Model
