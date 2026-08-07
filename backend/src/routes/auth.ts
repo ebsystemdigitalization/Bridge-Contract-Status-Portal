@@ -181,13 +181,6 @@ authRouter.post('/adb2c/callback', async (req, res) => {
       ''
     ).toLowerCase();
 
-    //Maintenance mode check
-    if (process.env.ADB2C_MAINTENANCE_MODE === 'true') {
-      return res.status(403).json({
-        error: 'ADB2C access temporarily disabled.'
-      });
-    }
-
 
     if (!staffId) {
       return res.status(401).json({
