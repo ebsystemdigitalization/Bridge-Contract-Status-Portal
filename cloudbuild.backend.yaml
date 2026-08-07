@@ -29,7 +29,7 @@ steps:
       - --platform=managed
       - --allow-unauthenticated
       - --service-account=bridge-portal-api@$PROJECT_ID.iam.gserviceaccount.com
-      - --set-env-vars=^@^GCP_PROJECT_ID=$PROJECT_ID@AUTH_PROVIDER=hybrid@ADB2C_TENANT_NAME=celcomdigib2c@ADB2C_TENANT_ID=f39b3666-7b5e-4b88-892a-37d49585e91b@ADB2C_POLICY=B2C_1_sign_in_with_id@ADB2C_CLIENT_ID=b6389e9c-e12e-4050-ae0f-a0b8cde047ea@ALLOWED_ORIGINS=http://localhost:3000,http://localhost:4173,http://10.18.160.164:3000,http://10.18.160.164:4173,https://bridge-portal-268827847108.asia-southeast1.run.app,https://bridge-portal-api-268827847108.asia-southeast1.run.app@ADB2C_REDIRECT_URI=https://bridge-portal-268827847108.asia-southeast1.run.app/login
+      --set-env-vars=^@^GCP_PROJECT_ID=$PROJECT_ID@AUTH_PROVIDER=hybrid@ADB2C_MAINTENANCE_MODE=true@ADB2C_TENANT_NAME=celcomdigib2c@ADB2C_TENANT_ID=f39b3666-7b5e-4b88-892a-37d49585e91b@ADB2C_POLICY=B2C_1_sign_in_with_id@ADB2C_CLIENT_ID=b6389e9c-e12e-4050-ae0f-a0b8cde047ea@ALLOWED_ORIGINS=http\://localhost:3000,http\://localhost:4173,http\://10.18.160.164:3000,http\://10.18.160.164:4173,https\://bridge-portal-268827847108.asia-southeast1.run.app,https\://bridge-portal-api-268827847108.asia-southeast1.run.app@ADB2C_REDIRECT_URI=https\://bridge-portal-268827847108.asia-southeast1.run.app/login
       - --update-secrets=FIRESTORE_DATABASE_ID=FIRESTORE_DATABASE_ID:latest,ADB2C_CLIENT_SECRET=ADB2C_CLIENT_SECRET:latest
 images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA

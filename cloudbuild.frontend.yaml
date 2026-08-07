@@ -31,8 +31,8 @@ steps:
       - VITE_ADB2C_TENANT_ID=celcomdigib2c.onmicrosoft.com
       - --build-arg
       - VITE_ADB2C_POLICY=B2C_1_sign_in_with_id
-      #- --build-arg
-      #- VITE_ADB2C_REDIRECT_URI=https://bridge-portal-268827847108.asia-southeast1.run.app/login
+      - --build-arg
+      - VITE_ADB2C_REDIRECT_URI=https://bridge-portal-268827847108.asia-southeast1.run.app/login
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA
       - .
