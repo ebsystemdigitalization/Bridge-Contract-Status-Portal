@@ -64,7 +64,7 @@ authRouter.post('/resolve-login', async (req, res) => {
 });
 
 
-// Azure AD B2C Callback
+// Azure AD B2C Callback.
 authRouter.post('/adb2c/callback', async (req, res) => {
   const {
     code,
