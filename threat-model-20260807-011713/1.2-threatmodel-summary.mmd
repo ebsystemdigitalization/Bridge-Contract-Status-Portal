@@ -1,0 +1,16 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'background': '#ffffff', 'primaryColor': '#ffffff', 'lineColor': '#666666' }}}%%
+flowchart LR
+    classDef process fill:#6baed6,stroke:#2171b5,stroke-width:2px,color:#000000
+    classDef external fill:#fdae61,stroke:#d94701,stroke-width:2px,color:#000000
+    classDef datastore fill:#74c476,stroke:#238b45,stroke-width:2px,color:#000000
+
+    Users["Users and Admins"]:::external
+    Edge["Public Web Edge"]:::process
+    Backend["Protected Backend APIs"]:::process
+    Data["Managed Data Services"]:::datastore
+    Identity["Identity and Secrets"]:::external
+
+    Users --> Edge
+    Edge --> Backend
+    Backend --> Data
+    Backend --> Identity

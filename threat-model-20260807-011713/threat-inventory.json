@@ -1,0 +1,230 @@
+{
+  "assessmentId": "threat-model-20260807-011713",
+  "generatedAt": "2026-08-07T01:17:13Z",
+  "repository": "Bridge Portal",
+  "scope": [
+    "React frontend",
+    "Express backend",
+    "Firebase/Firestore security rules",
+    "Cloud Build and Cloud Run deployment configuration"
+  ],
+  "elements": [
+    {
+      "id": "EndUser",
+      "type": "External Interactor",
+      "trustBoundary": "PublicZone",
+      "description": "Staff user accessing the portal from a browser"
+    },
+    {
+      "id": "AdminUser",
+      "type": "External Interactor",
+      "trustBoundary": "PublicZone",
+      "description": "Privileged operator managing portal functions"
+    },
+    {
+      "id": "BrowserClient",
+      "type": "Process",
+      "trustBoundary": "PublicZone",
+      "description": "React SPA using PKCE login and Firebase client SDK"
+    },
+    {
+      "id": "NginxFrontend",
+      "type": "Process",
+      "trustBoundary": "PublicZone",
+      "description": "nginx frontend serving the SPA and proxying /api"
+    },
+    {
+      "id": "ExpressApi",
+      "type": "Process",
+      "trustBoundary": "PublicZone",
+      "description": "Express entrypoint for auth, profile, contract, and admin APIs"
+    },
+    {
+      "id": "AuthRouter",
+      "type": "Process",
+      "trustBoundary": "BackendServices",
+      "description": "Auth routes for login resolution and ADB2C callback exchange"
+    },
+    {
+      "id": "AuthMiddleware",
+      "type": "Process",
+      "trustBoundary": "BackendServices",
+      "description": "Bearer-token validation and role/status enforcement"
+    },
+    {
+      "id": "MeRouter",
+      "type": "Process",
+      "trustBoundary": "BackendServices",
+      "description": "Authenticated profile APIs"
+    },
+    {
+      "id": "ContractsRouter",
+      "type": "Process",
+      "trustBoundary": "BackendServices",
+      "description": "Contract search, import, and purge endpoints"
+    },
+    {
+      "id": "AdminRouter",
+      "type": "Process",
+      "trustBoundary": "BackendServices",
+      "description": "Admin management APIs"
+    },
+    {
+      "id": "FirestoreAdminClient",
+      "type": "Process",
+      "trustBoundary": "BackendServices",
+      "description": "Firebase Admin SDK wrapper used by backend routes"
+    },
+    {
+      "id": "FirestoreDatabase",
+      "type": "Data Store",
+      "trustBoundary": "DataStorage",
+      "description": "Firestore collections for contracts, users, and logs"
+    },
+    {
+      "id": "FirestoreRules",
+      "type": "Data Store",
+      "trustBoundary": "DataStorage",
+      "description": "Firestore rules that govern direct client access"
+    },
+    {
+      "id": "AzureADB2C",
+      "type": "External Interactor",
+      "trustBoundary": "ExternalServices",
+      "description": "Azure AD B2C identity provider"
+    },
+    {
+      "id": "FirebaseAuth",
+      "type": "External Interactor",
+      "trustBoundary": "ExternalServices",
+      "description": "Firebase Authentication service"
+    },
+    {
+      "id": "GoogleSecretManager",
+      "type": "External Interactor",
+      "trustBoundary": "ExternalServices",
+      "description": "Google Secret Manager for secrets storage"
+    },
+    {
+      "id": "CloudBuildCloudRun",
+      "type": "Process",
+      "trustBoundary": "CICD",
+      "description": "Build and deployment automation for frontend and backend"
+    }
+  ],
+  "dataFlows": [
+    { "id": "DF01", "source": "EndUser", "target": "BrowserClient", "protocol": "HTTPS" },
+    { "id": "DF02", "source": "AdminUser", "target": "BrowserClient", "protocol": "HTTPS" },
+    { "id": "DF03", "source": "BrowserClient", "target": "NginxFrontend", "protocol": "HTTPS" },
+    { "id": "DF04", "source": "NginxFrontend", "target": "ExpressApi", "protocol": "HTTPS" },
+    { "id": "DF05", "source": "BrowserClient", "target": "AzureADB2C", "protocol": "OIDC/HTTPS" },
+    { "id": "DF06", "source": "BrowserClient", "target": "FirebaseAuth", "protocol": "HTTPS" },
+    { "id": "DF07", "source": "ExpressApi", "target": "AuthRouter", "protocol": "In-process" },
+    { "id": "DF08", "source": "ExpressApi", "target": "AuthMiddleware", "protocol": "In-process" },
+    { "id": "DF09", "source": "ExpressApi", "target": "MeRouter", "protocol": "In-process" },
+    { "id": "DF10", "source": "ExpressApi", "target": "ContractsRouter", "protocol": "In-process" },
+    { "id": "DF11", "source": "ExpressApi", "target": "AdminRouter", "protocol": "In-process" },
+    { "id": "DF12", "source": "AuthRouter", "target": "AzureADB2C", "protocol": "OIDC/HTTPS" },
+    { "id": "DF13", "source": "AuthRouter", "target": "FirebaseAuth", "protocol": "HTTPS" },
+    { "id": "DF14", "source": "AuthMiddleware", "target": "FirebaseAuth", "protocol": "HTTPS" },
+    { "id": "DF15", "source": "MeRouter", "target": "FirestoreAdminClient", "protocol": "SDK" },
+    { "id": "DF16", "source": "ContractsRouter", "target": "FirestoreAdminClient", "protocol": "SDK" },
+    { "id": "DF17", "source": "AdminRouter", "target": "FirestoreAdminClient", "protocol": "SDK" },
+    { "id": "DF18", "source": "FirestoreAdminClient", "target": "FirestoreDatabase", "protocol": "SDK/HTTPS" },
+    { "id": "DF19", "source": "FirestoreRules", "target": "FirestoreDatabase", "protocol": "Policy evaluation" },
+    { "id": "DF20", "source": "BrowserClient", "target": "FirestoreRules", "protocol": "Firebase SDK" },
+    { "id": "DF21", "source": "ExpressApi", "target": "GoogleSecretManager", "protocol": "HTTPS" },
+    { "id": "DF22", "source": "CloudBuildCloudRun", "target": "NginxFrontend", "protocol": "Deployment" },
+    { "id": "DF23", "source": "CloudBuildCloudRun", "target": "ExpressApi", "protocol": "Deployment" }
+  ],
+  "findings": [
+    {
+      "id": "FIND-01",
+      "title": "Public Login Resolution Enables Account Enumeration",
+      "severity": "Important",
+      "exploitabilityTier": "Tier 1",
+      "prerequisites": ["None"],
+      "component": "AuthRouter"
+    },
+    {
+      "id": "FIND-02",
+      "title": "ADB2C Callback Trusts a Client-Supplied Redirect URI",
+      "severity": "Important",
+      "exploitabilityTier": "Tier 1",
+      "prerequisites": ["None"],
+      "component": "AuthRouter"
+    },
+    {
+      "id": "FIND-03",
+      "title": "Public Error and Browser Hardening Gaps Increase Token Exposure Impact",
+      "severity": "Moderate",
+      "exploitabilityTier": "Tier 1",
+      "prerequisites": ["None"],
+      "component": "NginxFrontend, ExpressApi"
+    },
+    {
+      "id": "FIND-04",
+      "title": "Global JSON and Proxy Limits Are Too Broad for Public API Paths",
+      "severity": "Moderate",
+      "exploitabilityTier": "Tier 1",
+      "prerequisites": ["None"],
+      "component": "ExpressApi, NginxFrontend"
+    },
+    {
+      "id": "FIND-05",
+      "title": "ADB2C and Firebase Authentication Metadata Are Exposed in Frontend Build Inputs",
+      "severity": "Low",
+      "exploitabilityTier": "Tier 1",
+      "prerequisites": ["None"],
+      "component": "BrowserClient"
+    },
+    {
+      "id": "FIND-06",
+      "title": "Firestore Rules Still Permit Direct Client Updates That Can Bypass Approval State",
+      "severity": "Critical",
+      "exploitabilityTier": "Tier 2",
+      "prerequisites": ["Authenticated User"],
+      "component": "FirestoreRules"
+    },
+    {
+      "id": "FIND-07",
+      "title": "Direct Firestore Contract Reads Remain Available to Active Users",
+      "severity": "Important",
+      "exploitabilityTier": "Tier 2",
+      "prerequisites": ["Authenticated User"],
+      "component": "FirestoreDatabase, FirestoreRules"
+    },
+    {
+      "id": "FIND-08",
+      "title": "Contract Search Lacks Per-User Rate Limiting",
+      "severity": "Important",
+      "exploitabilityTier": "Tier 2",
+      "prerequisites": ["Authenticated User"],
+      "component": "ContractsRouter"
+    },
+    {
+      "id": "FIND-09",
+      "title": "Admin Search Log Export Exposes Broad User Activity Data",
+      "severity": "Moderate",
+      "exploitabilityTier": "Tier 2",
+      "prerequisites": ["Privileged User"],
+      "component": "AdminRouter"
+    },
+    {
+      "id": "FIND-10",
+      "title": "Backend Service Account and Secret Access Could Escalate Beyond the Intended Workload",
+      "severity": "Moderate",
+      "exploitabilityTier": "Tier 3",
+      "prerequisites": ["Admin Credentials"],
+      "component": "GoogleSecretManager"
+    },
+    {
+      "id": "FIND-11",
+      "title": "Deployment Automation Can Expand Privilege if CI/CD Settings Drift",
+      "severity": "Moderate",
+      "exploitabilityTier": "Tier 3",
+      "prerequisites": ["Admin Credentials"],
+      "component": "CloudBuildCloudRun"
+    }
+  ]
+}

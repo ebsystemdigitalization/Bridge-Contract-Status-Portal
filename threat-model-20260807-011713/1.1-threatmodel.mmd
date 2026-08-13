@@ -1,0 +1,47 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'background': '#ffffff', 'primaryColor': '#ffffff', 'lineColor': '#666666' }}}%%
+flowchart LR
+    classDef process fill:#6baed6,stroke:#2171b5,stroke-width:2px,color:#000000
+    classDef external fill:#fdae61,stroke:#d94701,stroke-width:2px,color:#000000
+    classDef datastore fill:#74c476,stroke:#238b45,stroke-width:2px,color:#000000
+
+    EndUser["End User"]:::external
+    AdminUser["Admin User"]:::external
+    BrowserClient(("Browser Client")):::process
+    NginxFrontend(("React Frontend Cloud Run")):::process
+    ExpressApi(("Express Backend API Cloud Run")):::process
+    AuthRouter(("Auth Router")):::process
+    AuthMiddleware(("Auth Middleware")):::process
+    MeRouter(("Me Router")):::process
+    ContractsRouter(("Contracts Router")):::process
+    AdminRouter(("Admin Router")):::process
+    FirestoreAdminClient(("Firestore Admin Client")):::process
+    FirestoreDatabase[("Firestore Database")]:::datastore
+    FirestoreRules[("Firestore Security Rules")]:::datastore
+    AzureADB2C["Azure AD B2C"]:::external
+    FirebaseAuth["Firebase Authentication"]:::external
+    GoogleSecretManager["Google Secret Manager"]:::external
+    CloudBuildCloudRun(("Cloud Build and Cloud Run Config")):::process
+
+    EndUser <-->|DF01| BrowserClient
+    AdminUser <-->|DF02| BrowserClient
+    BrowserClient <-->|DF03| NginxFrontend
+    NginxFrontend <-->|DF04| ExpressApi
+    BrowserClient <-->|DF05| AzureADB2C
+    BrowserClient <-->|DF06| FirebaseAuth
+    ExpressApi <-->|DF07| AuthRouter
+    ExpressApi <-->|DF08| AuthMiddleware
+    ExpressApi <-->|DF09| MeRouter
+    ExpressApi <-->|DF10| ContractsRouter
+    ExpressApi <-->|DF11| AdminRouter
+    AuthRouter <-->|DF12| AzureADB2C
+    AuthRouter <-->|DF13| FirebaseAuth
+    AuthMiddleware <-->|DF14| FirebaseAuth
+    MeRouter <-->|DF15| FirestoreAdminClient
+    ContractsRouter <-->|DF16| FirestoreAdminClient
+    AdminRouter <-->|DF17| FirestoreAdminClient
+    FirestoreAdminClient <-->|DF18| FirestoreDatabase
+    FirestoreRules <-->|DF19| FirestoreDatabase
+    BrowserClient -.->|DF20| FirestoreRules
+    ExpressApi <-->|DF21| GoogleSecretManager
+    CloudBuildCloudRun <-->|DF22| NginxFrontend
+    CloudBuildCloudRun <-->|DF23| ExpressApi
