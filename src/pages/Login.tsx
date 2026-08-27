@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
@@ -12,107 +12,218 @@ export const Login = () => {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutTime, setLockoutTime] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [codeProcessed, setCodeProcessed] = useState(false);
 
   const {
     user,
     profile,
+
+    // DMS
     loginWithADB2C,
     handleADB2CCallback,
+
+    // Internal Employee
+    loginWithEmployeeSSO,
+    handleEmployeeCallback,
+
     sessionExpired,
     clearSessionExpired
   } = useAuth();
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const [codeProcessed, setCodeProcessed] = useState(false);
 
-  // Handle ADB2C callback flow
+  // =======================================================
+  // DETERMINE CALLBACK TYPE
+  // =======================================================
+
+  const isEmployeeCallback =
+    location.pathname === '/auth/employee/callback';
+
+  // =======================================================
+  // HANDLE OAUTH CALLBACK
+  // =======================================================
+
   useEffect(() => {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
+    const oauthError = searchParams.get('error');
+    const oauthErrorDescription =
+      searchParams.get('error_description');
 
-    if (code && !codeProcessed) {
-      setCodeProcessed(true);
-      setLoading(true);
-      setError('');
+    // Microsoft / B2C returned an OAuth error
+    if (oauthError) {
+      setError(
+        oauthErrorDescription ||
+          oauthError ||
+          'Authentication failed.'
+      );
 
-      handleADB2CCallback(code, state)
+      setLoading(false);
+      return;
+    }
+
+    if (!code || codeProcessed) {
+      return;
+    }
+
+    setCodeProcessed(true);
+    setLoading(true);
+    setError('');
+
+    // =====================================================
+    // INTERNAL EMPLOYEE CALLBACK
+    // =====================================================
+
+    if (isEmployeeCallback) {
+      handleEmployeeCallback(code, state)
         .then(() => {
-          if (window.opener) {
-            window.opener.postMessage(
-              { type: 'ADB2C_AUTH_SUCCESS' },
-              window.location.origin
-            );
-            window.close();
-          } else {
-            navigate('/', { replace: true });
-          }
+          navigate('/', {
+            replace: true
+          });
         })
         .catch((err: any) => {
-          console.error('ADB2C Handle Error:', err);
+          console.error(
+            'Employee SSO Handle Error:',
+            err
+          );
 
           setError(
-            err.message ||
-              'Staff Authentication failed. Please try again or contact IT.'
+            err?.message ||
+              'Internal Employee authentication failed. Please try again or contact IT.'
           );
 
           setLoading(false);
-
-          if (!err.message?.includes('CRITICAL')) {
-            if (window.opener) {
-              window.opener.postMessage(
-                {
-                  type: 'ADB2C_AUTH_FAILURE',
-                  error: err.message
-                },
-                window.location.origin
-              );
-
-              window.close();
-            } else {
-              navigate('/login', { replace: true });
-            }
-          }
         });
 
       return;
     }
+
+    // =====================================================
+    // DMS / ADB2C CALLBACK
+    // =====================================================
+
+    handleADB2CCallback(code, state)
+      .then(() => {
+        if (window.opener) {
+          window.opener.postMessage(
+            {
+              type: 'ADB2C_AUTH_SUCCESS'
+            },
+            window.location.origin
+          );
+
+          window.close();
+        } else {
+          navigate('/', {
+            replace: true
+          });
+        }
+      })
+      .catch((err: any) => {
+        console.error(
+          'ADB2C Handle Error:',
+          err
+        );
+
+        setError(
+          err?.message ||
+            'DMS authentication failed. Please try again or contact IT.'
+        );
+
+        setLoading(false);
+
+        if (
+          !err?.message?.includes(
+            'CRITICAL'
+          )
+        ) {
+          if (window.opener) {
+            window.opener.postMessage(
+              {
+                type: 'ADB2C_AUTH_FAILURE',
+                error: err?.message
+              },
+              window.location.origin
+            );
+
+            window.close();
+          }
+        }
+      });
   }, [
     searchParams,
     codeProcessed,
+    isEmployeeCallback,
     handleADB2CCallback,
+    handleEmployeeCallback,
     navigate
   ]);
 
-  // Listen for popup messages
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const expectedOrigin = window.location.origin;
+  // =======================================================
+  // LISTEN FOR DMS POPUP MESSAGE
+  // =======================================================
 
-      if (!isTrustedMessageOrigin(event.origin, expectedOrigin)) {
+  useEffect(() => {
+    const handleMessage = (
+      event: MessageEvent
+    ) => {
+      const expectedOrigin =
+        window.location.origin;
+
+      if (
+        !isTrustedMessageOrigin(
+          event.origin,
+          expectedOrigin
+        )
+      ) {
         return;
       }
 
-      if (event.data?.type === 'ADB2C_AUTH_SUCCESS') {
-        navigate('/', { replace: true });
-      } else if (event.data?.type === 'ADB2C_AUTH_FAILURE') {
-        setError(event.data.error || 'Authentication failed');
+      if (
+        event.data?.type ===
+        'ADB2C_AUTH_SUCCESS'
+      ) {
+        navigate('/', {
+          replace: true
+        });
+      } else if (
+        event.data?.type ===
+        'ADB2C_AUTH_FAILURE'
+      ) {
+        setError(
+          event.data.error ||
+            'Authentication failed'
+        );
       }
     };
 
-    window.addEventListener('message', handleMessage);
+    window.addEventListener(
+      'message',
+      handleMessage
+    );
 
     return () =>
-      window.removeEventListener('message', handleMessage);
+      window.removeEventListener(
+        'message',
+        handleMessage
+      );
   }, [navigate]);
 
-  // Handle lockout countdown
+  // =======================================================
+  // LOCKOUT COUNTDOWN
+  // =======================================================
+
   useEffect(() => {
-    if (!lockoutTime) return;
+    if (!lockoutTime) {
+      return;
+    }
 
     const timer = setInterval(() => {
       const remaining = Math.ceil(
-        (lockoutTime - Date.now()) / 1000
+        (lockoutTime - Date.now()) /
+          1000
       );
 
       if (remaining <= 0) {
@@ -120,71 +231,150 @@ export const Login = () => {
         setFailedAttempts(0);
         setError('');
       } else {
-        setTimeRemaining(remaining);
+        setTimeRemaining(
+          remaining
+        );
       }
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () =>
+      clearInterval(timer);
   }, [lockoutTime]);
+
+  // Keep variables used by the existing lockout logic.
+  void failedAttempts;
+  void timeRemaining;
+
+  // =======================================================
+  // SESSION EXPIRED
+  // =======================================================
 
   useEffect(() => {
     if (sessionExpired) {
-      setError('You have been logged out due to inactivity.');
+      setError(
+        'You have been logged out due to inactivity.'
+      );
+
       clearSessionExpired();
     }
-  }, [sessionExpired, clearSessionExpired]);
+  }, [
+    sessionExpired,
+    clearSessionExpired
+  ]);
+
+  // =======================================================
+  // PROFILE STATUS
+  // =======================================================
 
   useEffect(() => {
-    if (user && profile) {
-      if (profile.status === 'Active') {
-        navigate('/');
-      } else if (profile.status === 'Pending') {
-        setError('Your account is awaiting admin approval.');
-      } else if (profile.status === 'Rejected') {
-        setError(
-          'Your account registration has been rejected.'
-        );
-      }
+    if (!user || !profile) {
+      return;
     }
-  }, [user, profile, navigate]);
 
-  // Temporary Internal Employee SSO handler
-  const handleInternalLogin = () => {
-    setError(
-      'Internal Employee SSO is currently being configured.'
-    );
+    if (
+      profile.status === 'Active'
+    ) {
+      navigate('/');
+    } else if (
+      profile.status === 'Pending'
+    ) {
+      setError(
+        'Your account is awaiting admin approval.'
+      );
+    } else if (
+      profile.status === 'Rejected'
+    ) {
+      setError(
+        'Your account registration has been rejected.'
+      );
+    }
+  }, [
+    user,
+    profile,
+    navigate
+  ]);
 
-    /*
-      Later this will become something like:
+  // =======================================================
+  // DMS LOGIN
+  // =======================================================
 
-      loginWithInternalSSO();
+  const handleDMSLogin =
+    async () => {
+      try {
+        setError('');
+        setLoading(true);
 
-      We will add this after IT provides:
-      - Employee Entra ID Client ID
-      - Tenant ID
-      - Authorization endpoint
-      - Token endpoint / OIDC metadata
-      - Confirmed redirect URI
-    */
-  };
+        await loginWithADB2C(true);
+      } catch (err: any) {
+        console.error(
+          'DMS Login Error:',
+          err
+        );
 
-  const isProcessingCode = !!searchParams.get('code');
+        setError(
+          err?.message ||
+            'Unable to start DMS login.'
+        );
 
-  if (isProcessingCode && !error) {
+        setLoading(false);
+      }
+    };
+
+  // =======================================================
+  // INTERNAL EMPLOYEE LOGIN
+  // =======================================================
+
+  const handleInternalLogin =
+    async () => {
+      try {
+        setError('');
+        setLoading(true);
+
+        await loginWithEmployeeSSO();
+
+        // Browser will redirect to Microsoft Entra.
+      } catch (err: any) {
+        console.error(
+          'Employee Login Error:',
+          err
+        );
+
+        setError(
+          err?.message ||
+            'Unable to start Internal Employee login.'
+        );
+
+        setLoading(false);
+      }
+    };
+
+  // =======================================================
+  // CALLBACK LOADING SCREEN
+  // =======================================================
+
+  const isProcessingCode =
+    !!searchParams.get('code');
+
+  if (
+    isProcessingCode &&
+    !error
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#001871]">
         <div className="text-center">
-
           <Loader2 className="w-12 h-12 animate-spin text-cd-cyan mx-auto mb-4" />
 
           <p className="text-cd-cyan font-black tracking-widest text-xs uppercase animate-pulse">
             Finalizing Secure Access...
           </p>
-
         </div>
       </div>
     );
   }
+
+  // =======================================================
+  // LOGIN PAGE
+  // =======================================================
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#001871] p-4 relative overflow-hidden">
@@ -201,12 +391,19 @@ export const Login = () => {
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{
+          opacity: 0,
+          y: 20
+        }}
+        animate={{
+          opacity: 1,
+          y: 0
+        }}
         className="max-w-md w-full relative z-10"
       >
 
-        {/* Portal title */}
+        {/* Portal Title */}
+
         <div className="text-center mb-10">
 
           <div className="flex justify-center">
@@ -219,7 +416,8 @@ export const Login = () => {
 
         </div>
 
-        {/* Login card */}
+        {/* Login Card */}
+
         <div className="bg-white p-10 rounded-4xl shadow-2xl shadow-slate-200/60 border border-slate-100 transition-all">
 
           <AnimatePresence mode="wait">
@@ -240,8 +438,13 @@ export const Login = () => {
                 }}
                 className={cn(
                   'mb-6 p-4 border-2 rounded-2xl flex items-center gap-3 text-sm font-bold',
-                  error.includes('successful') ||
-                    error.includes('awaiting')
+
+                  error.includes(
+                    'successful'
+                  ) ||
+                    error.includes(
+                      'awaiting'
+                    )
                     ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
                     : 'bg-rose-50 border-rose-100 text-rose-700'
                 )}
@@ -259,6 +462,7 @@ export const Login = () => {
           <div className="space-y-6">
 
             {/* Header */}
+
             <div className="text-center py-4">
 
               <h3 className="text-xl font-black text-cd-blue mb-2">
@@ -271,12 +475,14 @@ export const Login = () => {
 
             </div>
 
-            {/* ============================= */}
+            {/* ================================= */}
             {/* DMS DEALER LOGIN */}
-            {/* ============================= */}
+            {/* ================================= */}
 
             <button
-              onClick={() => loginWithADB2C(true)}
+              onClick={
+                handleDMSLogin
+              }
               disabled={loading}
               className="w-full py-6 bg-cd-blue text-white font-black rounded-2xl hover:bg-cd-blue/90 active:scale-[0.98] transition-all flex items-center justify-center gap-4 shadow-xl shadow-cd-blue/20"
             >
@@ -303,17 +509,23 @@ export const Login = () => {
 
             </div>
 
-            {/* ============================= */}
+            {/* ================================= */}
             {/* INTERNAL EMPLOYEE LOGIN */}
-            {/* ============================= */}
+            {/* ================================= */}
 
             <button
-              onClick={handleInternalLogin}
+              onClick={
+                handleInternalLogin
+              }
               disabled={loading}
               className="w-full py-6 bg-[#009BDF] text-white font-black rounded-2xl hover:bg-[#0088c4] active:scale-[0.98] transition-all flex items-center justify-center gap-4 shadow-xl shadow-[#009BDF]/20"
             >
 
-              INTERNAL USERS LOGIN
+              {loading ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                'INTERNAL USERS LOGIN'
+              )}
 
             </button>
 

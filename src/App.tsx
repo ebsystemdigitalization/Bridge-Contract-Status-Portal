@@ -19,32 +19,64 @@ export default function App() {
       <AuthProvider>
         <Router>
           <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/login-admin" element={<LoginAdmin />} />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <div className="min-h-screen">
-                  <Navbar />
-                  <SearchPage />
-                </div>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin" element={
-              <ProtectedRoute adminOnly>
-                <div className="min-h-screen">
-                  <Navbar />
-                  <AdminPanel />
-                </div>
-              </ProtectedRoute>
-            } />
-            <Route path="/maintenance" element={
-              <ProtectedRoute adminOnly>
-                <div className="min-h-screen">
-                  <Navbar />
-                  <MaintenancePage />
-                </div>
-              </ProtectedRoute>
-            } />
+
+            {/* Login */}
+            <Route
+              path="/login"
+              element={<Login />}
+            />
+
+            {/* Internal Employee Entra ID callback */}
+            <Route
+              path="/auth/employee/callback"
+              element={<Login />}
+            />
+
+            {/* Admin Login */}
+            <Route
+              path="/login-admin"
+              element={<LoginAdmin />}
+            />
+
+            {/* Main Portal */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <div className="min-h-screen">
+                    <Navbar />
+                    <SearchPage />
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute adminOnly>
+                  <div className="min-h-screen">
+                    <Navbar />
+                    <AdminPanel />
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Maintenance */}
+            <Route
+              path="/maintenance"
+              element={
+                <ProtectedRoute adminOnly>
+                  <div className="min-h-screen">
+                    <Navbar />
+                    <MaintenancePage />
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+
           </Routes>
         </Router>
       </AuthProvider>

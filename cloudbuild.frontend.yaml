@@ -4,44 +4,94 @@ substitutions:
   _REPOSITORY: bridge-portal
 
 steps:
+  # =========================================================
+  # BUILD FRONTEND
+  # =========================================================
   - name: gcr.io/cloud-builders/docker
     args:
       - build
       - -f
       - Dockerfile.frontend
+
+      # -------------------------------------------------------
+      # Maintenance Mode
+      # -------------------------------------------------------
       - --build-arg
       - VITE_MAINTENANCE_MODE=true
+
+      # -------------------------------------------------------
+      # Firebase
+      # -------------------------------------------------------
       - --build-arg
       - VITE_FIREBASE_API_KEY=AIzaSyDiAoUrzn05sbjWUCxNui3pnAiMtSMREVI
+
       - --build-arg
       - VITE_FIREBASE_AUTH_DOMAIN=ai-studio-applet-webapp-d20b8.firebaseapp.com
+
       - --build-arg
       - VITE_FIREBASE_PROJECT_ID=ai-studio-applet-webapp-d20b8
+
       - --build-arg
       - VITE_FIREBASE_APP_ID=1:268827847108:web:64005a509fdc48648e5c91
+
       - --build-arg
       - VITE_FIREBASE_STORAGE_BUCKET=ai-studio-applet-webapp-d20b8.firebasestorage.app
+
       - --build-arg
       - VITE_FIREBASE_MESSAGING_SENDER_ID=268827847108
+
+      # -------------------------------------------------------
+      # Backend API
+      # -------------------------------------------------------
       - --build-arg
       - VITE_API_BASE_URL=https://bridge-portal-api-268827847108.asia-southeast1.run.app
+
+      # -------------------------------------------------------
+      # DMS / Dealer - Azure AD B2C
+      # -------------------------------------------------------
       - --build-arg
       - VITE_ADB2C_CLIENT_ID=b6389e9c-e12e-4050-ae0f-a0b8cde047ea
+
       - --build-arg
       - VITE_ADB2C_TENANT_ID=celcomdigib2c.onmicrosoft.com
+
       - --build-arg
       - VITE_ADB2C_POLICY=B2C_1_sign_in_with_id
+
       - --build-arg
       - VITE_ADB2C_REDIRECT_URI=https://bridge-portal-268827847108.asia-southeast1.run.app/login
+
+      # -------------------------------------------------------
+      # Internal Employees - Microsoft Entra ID
+      # -------------------------------------------------------
+      - --build-arg
+      - VITE_EMPLOYEE_ENTRA_CLIENT_ID=451ac92f-1a4b-43e3-be18-0a42e9d9b59a
+
+      - --build-arg
+      - VITE_EMPLOYEE_ENTRA_TENANT_ID=bf048976-7110-4e87-96f3-c6744908b8be
+
+      - --build-arg
+      - VITE_EMPLOYEE_ENTRA_REDIRECT_URI=https://bridge-portal-268827847108.asia-southeast1.run.app/auth/employee/callback
+
+      # -------------------------------------------------------
+      # Image
+      # -------------------------------------------------------
       - -t
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA
+
       - .
 
+  # =========================================================
+  # PUSH IMAGE
+  # =========================================================
   - name: gcr.io/cloud-builders/docker
     args:
       - push
       - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$COMMIT_SHA
 
+  # =========================================================
+  # DEPLOY FRONTEND TO CLOUD RUN
+  # =========================================================
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     args:
