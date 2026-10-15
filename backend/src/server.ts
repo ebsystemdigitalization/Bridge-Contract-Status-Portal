@@ -12,16 +12,29 @@ import { authRouter } from './routes/auth.js';
 
 const app = express();
 
-app.use(helmet());
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin || config.allowedOrigins.includes(origin)) {
-      return callback(null, true);
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        styleSrc: ["'self'", 'https:']
+      }
     }
-    return callback(new Error('Origin is not allowed by CORS.'));
-  },
-  credentials: true
-}));
+  })
+);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || config.allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('Origin is not allowed by CORS.'));
+    },
+    credentials: true
+  })
+);
+
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
@@ -38,15 +51,25 @@ app.use('/api/me', meRouter);
 app.use('/api/contracts', contractsRouter);
 app.use('/api/admin', adminRouter);
 
-app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Unhandled API error:', error);
-  res.status(error.status || 500).json({
-    error: 'Internal server error.'
-  });
-});
+app.use(
+  (
+    error: any,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    console.error('Unhandled API error:', error);
+
+    res.status(error.status || 500).json({
+      error: 'Internal server error.'
+    });
+  }
+);
 
 app.use((_req, res) => {
-  res.status(404).json({ error: 'Route not found.' });
+  res.status(404).json({
+    error: 'Route not found.'
+  });
 });
 
 app.listen(config.port, () => {
