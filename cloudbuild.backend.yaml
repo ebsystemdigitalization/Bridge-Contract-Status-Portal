@@ -37,6 +37,7 @@ steps:
       - --region=${_REGION}
       - --platform=managed
       - --allow-unauthenticated
+      - --memory=2Gi
       - --service-account=bridge-portal-api@$PROJECT_ID.iam.gserviceaccount.com
 
       # =====================================================
