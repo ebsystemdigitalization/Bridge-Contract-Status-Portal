@@ -1,20 +1,18 @@
 import { NextFunction, Request, Response } from 'express';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import admin from 'firebase-admin';
-
 import { config } from '../config.js';
 import { firestore, isFirestoreAvailable, serverTimestamp } from '../firebaseAdmin.js';
-
 export interface AuthenticatedUser {
   oid: string;
   subject: string;
   email?: string;
   name?: string;
-  authProvider?: 'adb2c' | 'firebase';
+  authProvider?: 'adb2c' | 'firebase' | 'entra';
+  dmsLoginId?: string;
   role: 'superadmin' | 'admin' | 'user';
   status: 'Active' | 'Pending' | 'Rejected';
 }
-
 declare global {
   namespace Express {
     interface Request {
@@ -22,20 +20,33 @@ declare global {
     }
   }
 }
-
 const issuer = `https://${config.entraTenantName}.b2clogin.com/${config.entraTenantId}/v2.0/`;
-
 const jwksUrl =
   `https://${config.entraTenantName}.b2clogin.com/${config.entraTenantName}.onmicrosoft.com/${config.entraPolicy}/discovery/v2.0/keys`;
-
 const jwks = createRemoteJWKSet(new URL(jwksUrl));
-
-
+function findDmsLoginId(...values: unknown[]) {
+  return values
+    .map(value => String(value || '').trim().replace(/\s+/g, ''))
+    .find(value => /^\d{6,20}$/.test(value));
+}
+async function getActiveDmsWhitelistRecord(loginId: string | undefined) {
+  if (!loginId || !isFirestoreAvailable() || !firestore) {
+    return null;
+  }
+  const snapshot = await firestore
+    .collection('dms_whitelist')
+    .doc(loginId)
+    .get();
+  if (!snapshot.exists) {
+    return null;
+  }
+  const record = snapshot.data() as any;
+  return record.status === 'Active' ? record : null;
+}
 async function getUserProfile(
   authUser: AuthenticatedUser,
   defaultStatus: 'Active' | 'Pending' = 'Pending'
 ) {
-
   if (!isFirestoreAvailable() || !firestore) {
     return {
       uid: authUser.oid,
@@ -48,16 +59,11 @@ async function getUserProfile(
       lastLoginAt: serverTimestamp()
     };
   }
-
-
   const userDoc = await firestore
     .collection('users')
     .doc(authUser.oid)
     .get();
-
-
   if (!userDoc.exists) {
-
     const profile = {
       uid: authUser.oid,
       username: authUser.name || authUser.email?.split('@')[0] || authUser.oid,
@@ -71,48 +77,32 @@ async function getUserProfile(
       createdAt: serverTimestamp(),
       lastLoginAt: serverTimestamp()
     };
-
     await userDoc.ref.set(profile);
-
     return profile;
   }
-
-
   const profile = userDoc.data() as any;
-
   await userDoc.ref.update({
     lastLoginAt: serverTimestamp()
   });
-
   return profile;
 }
-
-
 export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
-
   try {
-
     const header = req.header('authorization') || '';
-
     const token =
       header.startsWith('Bearer ')
         ? header.substring(7)
         : '';
-
-
     if (!token) {
       return res.status(401).json({
         error: 'Missing bearer token.'
       });
     }
-
-
     try {
-
       const { payload } = await jwtVerify(
         token,
         jwks,
@@ -121,46 +111,46 @@ export async function requireAuth(
           audience: config.entraAudience
         }
       );
-
-
-      const oid =
-        String(payload.oid || payload.sub || '');
-
-
-      if (!oid) {
+      const b2cObjectId =
+        String(payload.oid || payload.sub || '').trim().toLowerCase();
+      if (!b2cObjectId) {
         throw new Error('Missing user identifier');
       }
-
-
+      const dmsLoginId = findDmsLoginId(
+        payload.extension_StaffId,
+        payload.name,
+        payload.given_name
+      );
+      const whitelistRecord = await getActiveDmsWhitelistRecord(dmsLoginId);
+      if (!whitelistRecord) {
+        return res.status(403).json({
+          error: 'Your DMS Login ID is not authorised for BCSP. Please contact the BCSP administrator.'
+        });
+      }
+      const oid = `adb2c_${b2cObjectId}`;
       const email =
         String(
           (payload.emails as string[] | undefined)?.[0] ||
           payload.email ||
           ''
         );
-
-
       const profile = await getUserProfile(
         {
           oid,
           subject: String(payload.sub || oid),
           email,
-          name: String(payload.name || ''),
+          name: dmsLoginId,
           authProvider: 'adb2c',
           role: 'user',
           status: 'Active'
         },
         'Active'
       );
-
-
       if (profile.status !== 'Active') {
         return res.status(403).json({
           error: 'User is not active.'
         });
       }
-
-
       req.user = {
         oid,
         subject: String(payload.sub || oid),
@@ -168,28 +158,17 @@ export async function requireAuth(
         name: profile.username,
         role: profile.role || 'user',
         status: profile.status,
-        authProvider: 'adb2c'
+        authProvider: 'adb2c',
+        dmsLoginId
       };
-
-
       return next();
-
-
     } catch (adb2cError) {
-
     }
-
-
     try {
-
       const decoded =
         await admin.auth().verifyIdToken(token);
-
-
       const oid =
         decoded.uid;
-
-
       const profile = await getUserProfile(
         {
           oid,
@@ -204,15 +183,26 @@ export async function requireAuth(
         },
         'Pending'
       );
-
-
-      if (profile.status === 'Rejected') {
+      const tokenProvider = String(decoded.provider || 'firebase');
+      let dmsLoginId: string | undefined;
+      if (tokenProvider === 'adb2c') {
+        dmsLoginId = findDmsLoginId(
+          decoded.dmsLoginId,
+          profile.dmsLoginId,
+          profile.username
+        );
+        const whitelistRecord = await getActiveDmsWhitelistRecord(dmsLoginId);
+        if (!whitelistRecord) {
+          return res.status(403).json({
+            error: 'Your DMS Login ID is not authorised for BCSP. Please contact the BCSP administrator.'
+          });
+        }
+      }
+      if (profile.status !== 'Active') {
         return res.status(403).json({
-          error: 'Your account registration has been rejected.'
+          error: 'Your account is not active. Please contact the BCSP administrator.'
         });
       }
-
-
       req.user = {
         oid,
         subject: decoded.uid,
@@ -220,69 +210,51 @@ export async function requireAuth(
         name: profile.username || decoded.name,
         role: profile.role || 'user',
         status: profile.status,
-        authProvider: 'firebase'
+        authProvider:
+          tokenProvider === 'adb2c'
+            ? 'adb2c'
+            : tokenProvider === 'entra'
+              ? 'entra'
+              : 'firebase',
+        dmsLoginId
       };
-
-
       return next();
-
-
     } catch(firebaseError) {
-
     }
-
-
     return res.status(401).json({
       error: 'Invalid authentication token.'
     });
-
-
   } catch(error) {
-
     console.error('Authentication error:', error);
-
     return res.status(500).json({
       error: 'Authentication processing failed.'
     });
-
   }
 }
-
-
 export function requireAdmin(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
-
   if (
     req.user?.role === 'admin' ||
     req.user?.role === 'superadmin'
   ) {
     return next();
   }
-
-
   return res.status(403).json({
     error: 'Admin access is required.'
   });
-
 }
-
-
 export function requireSuperAdmin(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
-
   if (req.user?.role === 'superadmin') {
     return next();
   }
-
-
   return res.status(403).json({
     error: 'Superadmin access is required.'
   });
-
 }
