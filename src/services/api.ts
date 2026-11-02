@@ -1,4 +1,4 @@
-import { ContractData, UserProfile, UserStatus, AuditLog } from '../types';
+import { ContractData, UserProfile, UserStatus, AuditLog, DmsWhitelistRecord } from '../types';
 
 const viteEnv = (
   import.meta as ImportMeta & {
@@ -47,8 +47,12 @@ async function apiRequest<T>(
     try {
       const body = await response.json();
 
+      const details = Array.isArray(body.details)
+        ? body.details.join(' ')
+        : body.details;
+
       message =
-        body.details ||
+        details ||
         body.error ||
         body.message ||
         message;
@@ -187,6 +191,64 @@ export const portalApi = {
       {
         method: 'DELETE',
         authToken
+      }
+    );
+  },
+
+
+  // =======================================================
+  // ADMIN - DMS WHITELIST
+  // =======================================================
+
+  listDmsWhitelist(authToken: string | null) {
+    return apiRequest<{
+      records: DmsWhitelistRecord[];
+      readCount: number;
+    }>(
+      '/api/admin/dms-whitelist',
+      {
+        authToken
+      }
+    );
+  },
+
+
+  uploadDmsWhitelist(
+    authToken: string | null,
+    file: File
+  ) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return apiRequest<{
+      dealersProcessed: number;
+      loginIdsProcessed: number;
+      ownerLoginIds: number;
+      supervisorLoginIds: number;
+    }>(
+      '/api/admin/dms-whitelist/import',
+      {
+        method: 'POST',
+        authToken,
+        body: formData
+      }
+    );
+  },
+
+
+  updateDmsWhitelistStatus(
+    authToken: string | null,
+    loginId: string,
+    status: 'Active' | 'Rejected'
+  ) {
+    return apiRequest<{
+      record: DmsWhitelistRecord;
+    }>(
+      `/api/admin/dms-whitelist/${encodeURIComponent(loginId)}/status`,
+      {
+        method: 'PATCH',
+        authToken,
+        body: JSON.stringify({ status })
       }
     );
   },

@@ -77,6 +77,23 @@ export interface UserProfile {
 }
 
 /**
+ * Pre-approved DMS dealer login ID used for BCSP access control.
+ */
+export interface DmsWhitelistRecord {
+  loginId: string;
+  dealerCode: string;
+  dealerCompany: string;
+  accessType: 'Owner' | 'Supervisor';
+  status: 'Active' | 'Rejected';
+  sourceFileName?: string;
+  uploadedBy?: string | null;
+  uploadedByUsername?: string;
+  uploadedAt?: any;
+  updatedBy?: string | null;
+  updatedAt?: any;
+}
+
+/**
  * Interface for security audit logs.
  */
 export interface AuditLog {
